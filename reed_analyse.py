@@ -16,7 +16,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from urllib.error import URLError
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 from requests.exceptions import ConnectionError
-
+import os
 
 #api_key = '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'
 api_key = os.getenv('OPENAI_API_KEY')
