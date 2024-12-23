@@ -20,6 +20,7 @@ from requests.exceptions import ConnectionError
 
 api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
+
 prompt_v3 = """
             I will provide you with an image of a pond, the pond has a colored tube like structure in the middle, the colored tube is used to indicate water levels, colors are ordered as follow from top to bottom: 
             1. black plate , pond is full 

@@ -22,15 +22,8 @@ def display_similarities(heading,infomation):
 initialize_session_state()
 
     # Helper function to get the appropriate prompt
-def get_prompt(submit_button_new3,submit_button_new, submit_button_old):
-    if submit_button_new:
-        st.session_state["pond_prompt"] = prompt_new
-        print(prompt_new)
-        return prompt_new
-    elif submit_button_old:
-        st.session_state["pond_prompt"] = prompt_old
-        return prompt_old
-    elif submit_button_new3:
+def get_prompt(submit_button_new3):
+    if submit_button_new3:
         st.session_state["pond_prompt"] = prompt_v3
         return prompt_v3
 
@@ -47,13 +40,11 @@ with st.sidebar:
     search_query = st.text_input("Enter pond number/identifier")
 
     submit_button_new3 = st.button("Analyse Tube Structure")
-    submit_button_new = st.button("Analyse New Pillar Structure")
-    submit_button_old = st.button("Analyse Old Pillar Structure")
 
     # Check if a file is uploaded and either button is pressed
-    if uploaded_file is not None and (submit_button_new3 or submit_button_new or submit_button_old):
+    if uploaded_file is not None and (submit_button_new3):
 
-        prompt = get_prompt(submit_button_new3,submit_button_new, submit_button_old)
+        prompt = get_prompt(submit_button_new3)
 
         if prompt is not None:
             try:
