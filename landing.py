@@ -87,7 +87,7 @@ with st.sidebar:
                 # for number in numbers:
                 #     send_whatsapp(message,number)
                 #uncomment line bellow after adding google sheet credentials follow link: https://medium.com/@vince.shields913/reading-google-sheets-into-a-pandas-dataframe-with-gspread-and-oauth2-375b932be7bf
-                to_gsheet(search_query,f_d['observations'],f_d['Recommendation'])
+                # to_gsheet(search_query,f_d['observations'],f_d['Recommendation'])
 
         except:
             st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN !!! ')
