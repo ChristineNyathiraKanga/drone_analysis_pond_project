@@ -50,8 +50,6 @@ with st.sidebar:
     submit_button_new = st.button("Analyse New Pillar Structure")
     submit_button_old = st.button("Analyse Old Pillar Structure")
 
-
-
     # Check if a file is uploaded and either button is pressed
     if uploaded_file is not None and (submit_button_new3 or submit_button_new or submit_button_old):
 
