@@ -1,7 +1,8 @@
+import os
 import requests
 import re
 import base64
-import openai
+from openai import OpenAI
 import pandas as pd
 import numpy as np
 import time
@@ -16,10 +17,9 @@ from oauth2client.service_account import ServiceAccountCredentials
 from urllib.error import URLError
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 from requests.exceptions import ConnectionError
-import os
 
-#api_key = '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'
 api_key = os.getenv('OPENAI_API_KEY')
+client = OpenAI(api_key=api_key)
 prompt_v3 = """
             I will provide you with an image of a pond, the pond has a colored tube like structure in the middle, the colored tube is used to indicate water levels, colors are ordered as follow from top to bottom: 
             1. black plate , pond is full 
@@ -109,17 +109,17 @@ prompt_old = """
 
 
 def initialize_session_state():
-    
+
     """
          Initializes all necessary session state for storing data across multiple clicks
     """
-    
+
     if "pond_prompt" not in st.session_state:
         st.session_state["pond_prompt"] = {}
-    
+
     if "uploaded_image" not in st.session_state:
         st.session_state["uploaded_image"] = {}
-    
+
     if "recommendation_data" not in st.session_state:
         st.session_state["recommendation_data"] = {}
 
@@ -138,7 +138,7 @@ def read_gsheet_from_url(url, sheet_name, credential_path,skip_rows=0, skip_colu
     url - an url of a gsheet,
     sheet_name - name of worksheet you want converted to a pd dataframe. Example: sheet_name='RESEARCH TABLE'
     skip_rows/skip_columns - numbers to be skipped
-    credential_path - path to your credentials json file (I use a service account from my Google APIs project, also had to give it permission to read the needed sheets and enable Google Drive API for the project)
+      - path to your credentials json file (I use a service account from my Google APIs project, also had to give it permission to read the needed sheets and enable Google Drive API for the project)
     
     '''
     scope = ["https://spreadsheets.google.com/feeds",
@@ -147,11 +147,11 @@ def read_gsheet_from_url(url, sheet_name, credential_path,skip_rows=0, skip_colu
              "https://www.googleapis.com/auth/drive"]
     credentials = ServiceAccountCredentials.from_json_keyfile_name(
              credential_path, scope)
-    
+
     trial = 1
     wait_secs = 30
-    
-    
+
+
     while True:
         try:
             gc = gspread.authorize(credentials)
@@ -160,31 +160,31 @@ def read_gsheet_from_url(url, sheet_name, credential_path,skip_rows=0, skip_colu
             headers = data.pop(skip_rows)
             df = pd.DataFrame(data[(skip_rows):], columns=headers).iloc[:,skip_columns:]
             break
-        
-        
+
+
         except (TimeoutError,ConnectionError, NewConnectionError, MaxRetryError):
-            
+
             if trial<4:
-                
+
                 print('failed to collect google sheets for {0} after {1} trial(s)\nTRYING AGAIN'.format(
                                                                                         sheet_name,
                                                                                         trial))
                 time.sleep(wait_secs*trial)
-                
+
                 trial+=1    
-            
+
             else:
                 print('failed to collect google sheets for {0} after {1} trial(s)'.format(
                                                                                         sheet_name,
                                                                                         trial))
                 raise
-            
+
         except:
             raise
-    
-            
-            
-            
+
+
+
+
     time.sleep(5)
     return df
 
@@ -193,7 +193,7 @@ def write_to_gsheet(output,url, sheet_name,credential_path , clear_before_writin
     output= output.replace(np.nan, '')
     scope = ['https://spreadsheets.google.com/feeds',
              'https://www.googleapis.com/auth/drive']
-    
+
     credentials = ServiceAccountCredentials.from_json_keyfile_name(
                  credential_path, scope)
     gc = gspread.authorize(credentials)
@@ -206,7 +206,7 @@ def to_gsheet(pond_identity,observation,recommendation):
     current_datetime = datetime.now()
     current_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/1gG8PXNhySpXtUa88wRqgQMNtx_fqNfrQihRcKbqqT3Y/edit?gid=0#gid=0','Sheet1','re-captcha-api-f3b9057733c7.json')
+    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/1pjW3kEsT4OpwCGRPUD8FVJTMlfVGj_78BXXd5fJbSZU/edit?gid=0#gid=0','Sheet1','pond-water-analysis-e058b0a16085.json')
 
     new_data = {
         'Pond Name': [pond_identity],
@@ -215,13 +215,13 @@ def to_gsheet(pond_identity,observation,recommendation):
     }
     new_df = pd.DataFrame(new_data)
     new_df['Date']=current_datetime
-    
+
     # Append the new row to the existing DataFrame
     df = pd.concat([df, new_df], ignore_index=True)
     df['Date']=df['Date'].astype(str)
 
-    write_to_gsheet(df,'https://docs.google.com/spreadsheets/d/1gG8PXNhySpXtUa88wRqgQMNtx_fqNfrQihRcKbqqT3Y/edit?gid=0#gid=0','Sheet1','re-captcha-api-f3b9057733c7.json')
-    
+    write_to_gsheet(df,'https://docs.google.com/spreadsheets/d/1pjW3kEsT4OpwCGRPUD8FVJTMlfVGj_78BXXd5fJbSZU/edit?gid=0#gid=0','Sheet1','pond-water-analysis-e058b0a16085.json')
+
     print('done')
 
 def change_image_format(image_file):
@@ -244,11 +244,9 @@ def compare_images(prompt,image_1):
 
     data_url = change_image_format(image_1)
 
-    openai.api_key = api_key  
 
-    
-    response = openai.ChatCompletion.create(
-    model="gpt-4o",
+
+    response = client.chat.completions.create(model="gpt-4o",
     messages=[
         {
         "role": "user",
@@ -270,7 +268,6 @@ def compare_images(prompt,image_1):
     max_tokens=2048,
     top_p=1,
     frequency_penalty=0,
-    presence_penalty=0
-    )
-    response_text = response["choices"][0]["message"]["content"]
+    presence_penalty=0)
+    response_text = response.choices[0].message.content
     return response_text
