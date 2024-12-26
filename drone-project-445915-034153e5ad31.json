@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "drone-project-445915",
+  "private_key_id": "034153e5ad313ad06fbcf1ddddcbf84b86d4b732",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC57ivFrPnwY2mt\nk3UMt97Zc9alN2HT0PrxSiCUKlmaYnWemRtw66ngFGlYGch5fKkyGRy9C5ApyTNo\nn/vP4+ieH3tcaN9HOvnOhH1c61MlKkGN3b9o5H/9gLBNliVHnF8ORqv9SbUONURd\n0anc8TZLdWn1PfbsMO/pZzLIqGQOG4DI5YYcqK93QH9qCATxhpNw14vZpOJbv0UB\nlAAZUsedf/p/badejFMpVR/oJhqGTQ7JUlJ/NVo4Hfi31+JsPLepDdSxxAfVWgBJ\n2qNgOjz1kE5x4ylv0bjVRfNUU1eER/rU6ec9IY6egqSxf5bmyCkA84t0QNJQKe0R\nLutFHOy3AgMBAAECggEADBk35vKFBwPpBf7w4GV8jkjP4EtUxcw08AuDSDDjSLz8\na1gKJZRoJukdG7r9xQ38EoL40EJW3Kk3e6jhYVsysUtaIx693Kw1Qh9z6t5zOBli\nT6FsyZ4IyA2eK0ZIYbsGom6t1Vr8+ZI0wygX9gUKI+ndfbRNA3yBt/3bm5v9er9p\n4xs7u5dJhbsSAG82D+uWmIr2ayj5CketGzIG3e3V4XKSgnfeABHQ8lWieUvaluwP\nivFp/zPPQWaY6UFquCYfE4ZL0Qdh/fMQD1Up2GoQs6E6PTPT1fmSGzvmOwL6JdjO\nesnT3oukL4qQwF+X9qzqDqbgXRShE2OScJdwKs2EdQKBgQDvgWuIHL5xu7tRffKo\nQTrVqpR1RsetKWWM12l8fnFMwAM8saPSLON7aMbLx8a9YOruk6b1Nc89f0E+jO22\nHyFBtWchJqXp3P0Ugf2oxxf6N9xyr500w0FeetCbO2++gNLADNDm92+HLb2EEiCp\nZp1R6rAOWPisFoFoQD5B+5u55QKBgQDGvDLV8Jsk6KhX4hsI/46dQpTpe8JFqO19\nw0QNpdL+dwxOkJ/u82tAItnbxPyHz6aXuujehn3TpwMRZphpvQst0P3BTQi+tjxx\np6xnTwgUmIxGtRezMVOv8EOcatF1fGwOLFwyGuxOBoBBQLZIKRm3r+K3+BMLABSG\nIISPlGGyawKBgQCZOetZwUn16W0FzdYY3uKNH/yqqwXEOt/FI2tRQnOp7o4jnmJ4\nbE98/KNya/Ux43dp+vytlCdp6KgNJIxQH8pfB3dbNiafX8pp/GAUQouMgYB/vuqM\nfv6rO1eKeJQdBL3QMGLV4SdxDEpa3F4ZApVTexn3k+RD9IIF+FPcUuRmIQKBgDNE\n2+x7TNrhtoQtjYHtw9HoGlh9l+m2ocX++PB4Zg1FkwQ1pTzUyUdbdk6O7ALxW+3q\nxyaZFZ7jiBQWHp2wqlCgiMY0ZFwm0UMU2ZIxPklp7U5Ua4/L2uYZmqegmvavKYUi\nhopajbm3TaEH276T89GCa3/AXNFKrQDJJMmRov6PAoGBAOnvIgl/Rzs/sSNNLv27\niHoJ0tKbHtOid4wWhTHtCI0y3IR8SmLZfYMoXywl1Zs/87lfoZ5I9i/2e8NjPtYN\nA9R94izVeyD4Elw37H+++8nNDZkl7VQLKohvbKR+pKZvSDYNudGR3zSCbT1z2r0T\nZ5IXNp65WtA76SmZvjlSNaTt\n-----END PRIVATE KEY-----\n",
+  "client_email": "pond-water-level-analysis@drone-project-445915.iam.gserviceaccount.com",
+  "client_id": "103076634383672860459",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/pond-water-level-analysis%40drone-project-445915.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

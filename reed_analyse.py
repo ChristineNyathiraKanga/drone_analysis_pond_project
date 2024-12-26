@@ -2,6 +2,7 @@ import os
 import requests
 import re
 import base64
+import openai
 from openai import OpenAI
 import pandas as pd
 import numpy as np
@@ -17,6 +18,9 @@ from oauth2client.service_account import ServiceAccountCredentials
 from urllib.error import URLError
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 from requests.exceptions import ConnectionError
+from dotenv import load_dotenv # type: ignore
+
+load_dotenv()
 
 api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
@@ -142,6 +146,7 @@ def read_gsheet_from_url(url, sheet_name, credential_path,skip_rows=0, skip_colu
       - path to your credentials json file (I use a service account from my Google APIs project, also had to give it permission to read the needed sheets and enable Google Drive API for the project)
     
     '''
+    credential_path = 'drone-project-445915-034153e5ad31.json'
     scope = ["https://spreadsheets.google.com/feeds",
              "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive.file",
@@ -203,11 +208,11 @@ def write_to_gsheet(output,url, sheet_name,credential_path , clear_before_writin
         worksheet.clear()
     worksheet.update([output.columns.values.tolist()] + output.values.tolist())
 
-def to_gsheet(pond_identity,observation,recommendation):
+def to_gsheet(pond_identity,observation,recommendation): 
     current_datetime = datetime.now()
     current_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/1pjW3kEsT4OpwCGRPUD8FVJTMlfVGj_78BXXd5fJbSZU/edit?gid=0#gid=0','Sheet1','pond-water-analysis-e058b0a16085.json')
+    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/1X86bzukJnjsbhKGHammUAZDEit7XqIC-yf5uhVDbMtQ/edit?gid=0#gid=0','Sheet1','drone-project-445915-034153e5ad31.json')
 
     new_data = {
         'Pond Name': [pond_identity],
@@ -221,7 +226,7 @@ def to_gsheet(pond_identity,observation,recommendation):
     df = pd.concat([df, new_df], ignore_index=True)
     df['Date']=df['Date'].astype(str)
 
-    write_to_gsheet(df,'https://docs.google.com/spreadsheets/d/1pjW3kEsT4OpwCGRPUD8FVJTMlfVGj_78BXXd5fJbSZU/edit?gid=0#gid=0','Sheet1','pond-water-analysis-e058b0a16085.json')
+    write_to_gsheet(df,'https://docs.google.com/spreadsheets/d/1X86bzukJnjsbhKGHammUAZDEit7XqIC-yf5uhVDbMtQ/edit?gid=0#gid=0','Sheet1','drone-project-445915-034153e5ad31.json')
 
     print('done')
 
