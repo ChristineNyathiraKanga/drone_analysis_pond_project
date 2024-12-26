@@ -18,9 +18,9 @@ from oauth2client.service_account import ServiceAccountCredentials
 from urllib.error import URLError
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 from requests.exceptions import ConnectionError
-from dotenv import load_dotenv # type: ignore
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
 
 api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
