@@ -210,7 +210,7 @@ def write_to_gsheet(output,url, sheet_name,credential_path , clear_before_writin
 
 def to_gsheet(pond_identity,observation,recommendation): 
     current_datetime = datetime.now()
-    current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+    formatted_datetime = "VF-" + current_datetime.strftime("%Y-%m-%d-%H:%M")
 
     df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/12A5qKhdutCqPttNkViQ6It9eC0-YIdVxpnMotUUGop4/edit?gid=0#gid=0','Sheet1','drone-project-445915-006e8606af11.json')
 
@@ -220,7 +220,7 @@ def to_gsheet(pond_identity,observation,recommendation):
         'Recommendation': [recommendation]
     }
     new_df = pd.DataFrame(new_data)
-    new_df['Date']=current_datetime
+    new_df['Date']=formatted_datetime
 
     # Append the new row to the existing DataFrame
     df = pd.concat([df, new_df], ignore_index=True)
