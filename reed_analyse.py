@@ -19,7 +19,7 @@ from urllib.error import URLError
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 from requests.exceptions import ConnectionError
 # from dotenv import load_dotenv
-
+import pytz
 # load_dotenv()
 
 api_key = os.getenv('OPENAI_API_KEY')
@@ -209,7 +209,8 @@ def write_to_gsheet(output,url, sheet_name,credential_path , clear_before_writin
     worksheet.update([output.columns.values.tolist()] + output.values.tolist())
 
 def to_gsheet(pond_identity,observation,recommendation): 
-    current_datetime = datetime.now()
+    kenya_tz = pytz.timezone('Africa/Nairobi')
+    current_datetime = datetime.now(kenya_tz)
     formatted_datetime = "VF-" + current_datetime.strftime("%Y-%m-%d-%H:%M")
 
     df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/12A5qKhdutCqPttNkViQ6It9eC0-YIdVxpnMotUUGop4/edit?gid=0#gid=0','Sheet1','drone-project-445915-006e8606af11.json')
