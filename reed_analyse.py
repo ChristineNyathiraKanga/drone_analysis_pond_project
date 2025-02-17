@@ -212,7 +212,7 @@ def to_gsheet(pond_identity,observation,recommendation):
     current_datetime = datetime.now()
     current_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/1X86bzukJnjsbhKGHammUAZDEit7XqIC-yf5uhVDbMtQ/edit?gid=0#gid=0','Sheet1','drone-project-445915-006e8606af11.json')
+    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/12A5qKhdutCqPttNkViQ6It9eC0-YIdVxpnMotUUGop4/edit?gid=0#gid=0','Sheet1','drone-project-445915-006e8606af11.json')
 
     new_data = {
         'Pond Name': [pond_identity],
@@ -226,7 +226,7 @@ def to_gsheet(pond_identity,observation,recommendation):
     df = pd.concat([df, new_df], ignore_index=True)
     df['Date']=df['Date'].astype(str)
 
-    write_to_gsheet(df,'https://docs.google.com/spreadsheets/d/1X86bzukJnjsbhKGHammUAZDEit7XqIC-yf5uhVDbMtQ/edit?gid=0#gid=0','Sheet1','drone-project-445915-006e8606af11.json')
+    write_to_gsheet(df,'https://docs.google.com/spreadsheets/d/12A5qKhdutCqPttNkViQ6It9eC0-YIdVxpnMotUUGop4/edit?gid=0#gid=0','Sheet1','drone-project-445915-006e8606af11.json')
 
     print('done')
 
