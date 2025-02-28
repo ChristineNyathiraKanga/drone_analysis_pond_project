@@ -25,35 +25,63 @@ import pytz
 api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
 
+# prompt_v3_old = """
+#             I will provide you with an image of a pond, the pond has a colored tube like structure in the middle, the colored tube is used to indicate water levels, colors are ordered as follow from top to bottom: 
+#             1. black plate , pond is full 
+#             2. green plate,  safe level no need for refill. 
+#             3. yellow plate , average risk still needs refill 
+#             4. red plate ,  critical level, urgent pond refill 
+
+#             your job 
+#                 - Examine the image 
+#                 - Identify all colors visible considering factors of different hues of the colors. 
+#                 - Based on the colors observed, assess the current water level of the pond. 
+#                 - Please provide a brief explanation to justify your assessment.
+#                 -  Based on the colors observed give the following recommendation and observations:
+#                             - if red,yellow, green and black are visible : 
+#                                 recommendation: Urgent pond refill 
+#                                 observation: Red
+#                             - if yellow, green and black are visible : 
+#                                 recommendation: At risk, refill at next day cycle
+#                                 observation: Yellow
+#                             - if green and black are visible :  
+#                                 recommendation: No action needed
+#                                 observation: Green
+#                             - if only black  : 
+#                                 recommendation: no more filling
+#                                 observation: Black
+#                 - Return your evaluation as a JSON object in the following format:
+#                                         {\n  'Recommendation': <recommendation>'\n 'observations': <observations> '\n 'explanation': <explanation> }
+#                             - Do not add additional formatting or prefaces like ```json to the output.\n\nrespond in only valid json format only, dont add ``` or json"""
+
 prompt_v3 = """
             I will provide you with an image of a pond, the pond has a colored tube like structure in the middle, the colored tube is used to indicate water levels, colors are ordered as follow from top to bottom: 
-            1. black plate , pond is full 
+            1. white plate , pond is full 
             2. green plate,  safe level no need for refill. 
-            3. yellow plate , average risk still needs refill 
+            3. blue plate , average risk still needs refill 
             4. red plate ,  critical level, urgent pond refill 
 
             your job 
                 - Examine the image 
-                - Identify all square plates visible and there colors. 
+                - Identify all colors visible considering factors of different hues of the colors. 
                 - Based on the colors observed, assess the current water level of the pond. 
                 - Please provide a brief explanation to justify your assessment.
                 -  Based on the colors observed give the following recommendation and observations:
-                            - if red,yellow, green and black are visible : 
+                            - if red, blue, green and white are visible : 
                                 recommendation: Urgent pond refill 
                                 observation: Red
-                            - if yellow, green and black are visible : 
+                            - if blue, green and white are visible : 
                                 recommendation: At risk, refill at next day cycle
-                                observation: Yellow
-                            - if green and black are visible :  
+                                observation: Blue
+                            - if green and white are visible :  
                                 recommendation: No action needed
                                 observation: Green
-                            - if only black  : 
+                            - if only white  : 
                                 recommendation: no more filling
-                                observation: Black
+                                observation: White
                 - Return your evaluation as a JSON object in the following format:
-                                        {\n  'Recommendation': <recommendation>'\n 'observations': <observations>}
+                                        {\n  'Recommendation': <recommendation>'\n 'observations': <observations> '\n 'explanation': <explanation> }
                             - Do not add additional formatting or prefaces like ```json to the output.\n\nrespond in only valid json format only, dont add ``` or json"""
-
 
 prompt_new = """
             I will provide you with an image of a pond the pond has colored Square plate-like structure in the middle, the colored square plate-like structure is used to indicate water levels, colors are ordered as follow from top to bottom: 
@@ -222,6 +250,8 @@ def to_gsheet(pond_identity,observation,recommendation):
     }
     new_df = pd.DataFrame(new_data)
     new_df['Date']=formatted_datetime
+    
+   
 
     # Append the new row to the existing DataFrame
     df = pd.concat([df, new_df], ignore_index=True)
