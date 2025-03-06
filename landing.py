@@ -98,7 +98,50 @@ if submit_button_single:
         except:
             st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN !!! ')
 
+# ...existing code...
+
 if submit_button_batch:
+    if uploaded_folder is None:
+        st.error("Please upload a ZIP folder containing image files.")
+    else:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with ZipFile(uploaded_folder, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+
+            image_files = [f for f in os.listdir(temp_dir) if f.endswith(('png', 'jpg', 'jpeg', 'PNG', 'JPG', 'JPEG'))]
+            if not image_files:
+                st.error("No valid image files found in the uploaded folder.")
+            else:
+                st.session_state["recommendation_data"] = []
+                prompt = get_prompt(submit_button_batch)
+
+                with ThreadPoolExecutor() as executor:
+                    futures = [executor.submit(process_image, image_file, prompt, temp_dir) for image_file in image_files]
+                    for future in futures:
+                        result = future.result()
+                        if result:
+                            st.session_state["recommendation_data"].append(result)
+
+                for recommendation in st.session_state["recommendation_data"]:
+                    image_path = os.path.join(temp_dir, recommendation["Pond Identifier"] + ".jpg")
+                    if os.path.exists(image_path):
+                        st.image(
+                            image_path,
+                            caption=recommendation["Pond Identifier"],
+                            use_container_width=True,
+                        )
+                        st.header(f'Summary: {recommendation["Pond Identifier"]}')
+                        display_similarities('Observation', recommendation['observations'])
+                        display_similarities('Recommendation', recommendation['Recommendation'])
+                    else:
+                        st.error(f"Image file {image_path} not found.")
+
+                    # Display the JSON array of all recommendations
+                    # st.json(st.session_state["recommendation_data"])
+                    # print(json.dumps(st.session_state["recommendation_data"], indent=4))
+
+                    # Write to Google Sheet
+                    to_gsheet_batch(st.session_state["recommendation_data"])
     if uploaded_folder is None:
         st.error("Please upload a ZIP folder containing image files.")
     else:
