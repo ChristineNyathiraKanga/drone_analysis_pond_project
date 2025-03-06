@@ -13,6 +13,8 @@ from zipfile import ZipFile
 import os
 from concurrent.futures import ThreadPoolExecutor
 import tempfile
+from io import BytesIO
+from PIL import Image
 
 st.set_page_config(layout="wide")
 
@@ -33,17 +35,19 @@ def get_prompt(submit_button):
     else:
         return None
 
-def process_image(image_file, prompt, temp_dir):
-    pond_identifier = os.path.splitext(image_file)[0]
-    image_path = os.path.join(temp_dir, image_file)
-    with open(image_path, "rb") as img:
+def process_image(image_file, prompt):
+    pond_identifier = os.path.splitext(image_file.name)[0]
+    image = Image.open(image_file)
+    with BytesIO() as img_buffer:
+        image.save(img_buffer, format=image.format)
+        img_buffer.seek(0)
         try:
-            data = compare_images(prompt, img)
+            data = compare_images(prompt, img_buffer)
             d = json.loads(data)
             d["Pond Identifier"] = pond_identifier
             return d
         except Exception as e:
-            st.error(f'Error processing {image_file}: {e}')
+            st.error(f'Error processing {image_file.name}: {e}')
             return None
 
 with st.sidebar:
@@ -98,8 +102,6 @@ if submit_button_single:
         except:
             st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN !!! ')
 
-# ...existing code...
-
 if submit_button_batch:
     if uploaded_folder is None:
         st.error("Please upload a ZIP folder containing image files.")
@@ -116,17 +118,17 @@ if submit_button_batch:
                 prompt = get_prompt(submit_button_batch)
 
                 with ThreadPoolExecutor() as executor:
-                    futures = [executor.submit(process_image, image_file, prompt, temp_dir) for image_file in image_files]
+                    futures = [executor.submit(process_image, open(os.path.join(temp_dir, image_file), 'rb'), prompt) for image_file in image_files]
                     for future in futures:
                         result = future.result()
                         if result:
                             st.session_state["recommendation_data"].append(result)
 
                 for recommendation in st.session_state["recommendation_data"]:
-                    image_path = os.path.join(temp_dir, recommendation["Pond Identifier"] + ".jpg")
-                    if os.path.exists(image_path):
+                    image_file = next((f for f in image_files if os.path.splitext(f)[0] == recommendation["Pond Identifier"]), None)
+                    if image_file:
                         st.image(
-                            image_path,
+                            open(os.path.join(temp_dir, image_file), 'rb'),
                             caption=recommendation["Pond Identifier"],
                             use_container_width=True,
                         )
@@ -134,48 +136,7 @@ if submit_button_batch:
                         display_similarities('Observation', recommendation['observations'])
                         display_similarities('Recommendation', recommendation['Recommendation'])
                     else:
-                        st.error(f"Image file {image_path} not found.")
+                        st.error(f"Image file for {recommendation['Pond Identifier']} not found.")
 
-                    # Display the JSON array of all recommendations
-                    # st.json(st.session_state["recommendation_data"])
-                    # print(json.dumps(st.session_state["recommendation_data"], indent=4))
-
-                    # Write to Google Sheet
-                    to_gsheet_batch(st.session_state["recommendation_data"])
-    if uploaded_folder is None:
-        st.error("Please upload a ZIP folder containing image files.")
-    else:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with ZipFile(uploaded_folder, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-
-            image_files = [f for f in os.listdir(temp_dir) if f.endswith(('png', 'jpg', 'jpeg', 'PNG', 'JPG', 'JPEG'))]
-            if not image_files:
-                st.error("No valid image files found in the uploaded folder.")
-            else:
-                st.session_state["recommendation_data"] = []
-                prompt = get_prompt(submit_button_batch)
-
-                with ThreadPoolExecutor() as executor:
-                    futures = [executor.submit(process_image, image_file, prompt, temp_dir) for image_file in image_files]
-                    for future in futures:
-                        result = future.result()
-                        if result:
-                            st.session_state["recommendation_data"].append(result)
-
-                for recommendation in st.session_state["recommendation_data"]:
-                    st.image(
-                        os.path.join(temp_dir, recommendation["Pond Identifier"] + ".jpg"),
-                        caption=recommendation["Pond Identifier"],
-                        use_container_width=True,
-                    )
-                    st.header(f'Summary: {recommendation["Pond Identifier"]}')
-                    display_similarities('Observation', recommendation['observations'])
-                    display_similarities('Recommendation', recommendation['Recommendation'])
-
-                    # Display the JSON array of all recommendations
-                    # st.json(st.session_state["recommendation_data"])
-                    # print(json.dumps(st.session_state["recommendation_data"], indent=4))
-
-                    # Write to Google Sheet
-                    to_gsheet_batch(st.session_state["recommendation_data"])
+                # Write to Google Sheet
+                to_gsheet_batch(st.session_state["recommendation_data"])
