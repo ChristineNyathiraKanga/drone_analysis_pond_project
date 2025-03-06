@@ -17,10 +17,8 @@ from google.oauth2 import service_account
 from urllib.error import URLError
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 from requests.exceptions import ConnectionError
-import pytz
-from io import BytesIO
-import os
 # from dotenv import load_dotenv
+import pytz
 # load_dotenv()
 
 api_key = os.getenv('OPENAI_API_KEY')
