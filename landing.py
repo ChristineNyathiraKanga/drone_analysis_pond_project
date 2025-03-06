@@ -12,6 +12,7 @@ from reed_analyse import *
 from zipfile import ZipFile
 import os
 from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
 
 st.set_page_config(layout="wide")
 
@@ -33,17 +34,15 @@ def get_prompt(submit_button):
         return None
 
 def process_image(image_file, prompt):
-    pond_identifier = os.path.splitext(image_file)[0]
-    image_path = os.path.join("temp_images", image_file)
-    with open(image_path, "rb") as img:
-        try:
-            data = compare_images(prompt, img)
-            d = json.loads(data)
-            d["Pond Identifier"] = pond_identifier
-            return d
-        except Exception as e:
-            st.error(f'Error processing {image_file}: {e}')
-            return None
+    pond_identifier = os.path.splitext(image_file.name)[0]
+    try:
+        data = compare_images(prompt, image_file)
+        d = json.loads(data)
+        d["Pond Identifier"] = pond_identifier
+        return d
+    except Exception as e:
+        st.error(f'Error processing {image_file.name}: {e}')
+        return None
 
 with st.sidebar:
     with st.expander("Single Image Processing"):
@@ -55,7 +54,7 @@ with st.sidebar:
     with st.expander("Batch Processing"):
         uploaded_folder = st.file_uploader("Select or drag a ZIP folder with image files here", type=['zip'])
         st.session_state["uploaded_folder"] = uploaded_folder
-        submit_button_batch = st.button("Analyse Tube Structures")
+        submit_button_batch = st.button("Analyse Tube Structure")
 
 if submit_button_single:
     if uploaded_file is None:
@@ -70,12 +69,14 @@ if submit_button_single:
                 data = compare_images(prompt, uploaded_file)
                 d = json.loads(data)
                 st.session_state["recommendation_data"] = d
+                to_gsheet(search_query, d['observations'], d['Recommendation'])
             except Exception as e:
                 st.error(f'Error: {e}')
                 try:
                     data = compare_images(prompt, uploaded_file)
                     d = json.loads(data)
                     st.session_state["recommendation_data"] = d
+                    to_gsheet(search_query, d['observations'], d['Recommendation'])
                 except Exception:
                     st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN!!!')
 
@@ -86,7 +87,7 @@ if submit_button_single:
                     caption=search_query,
                     use_container_width=True,
                 )
-                st.header('Summary')
+                st.header(f'Summary: {search_query}')
                 f_d = st.session_state["recommendation_data"]
                 display_similarities('Observation', f_d['observations'])
                 display_similarities('Recommendation', f_d['Recommendation'])
@@ -100,9 +101,8 @@ if submit_button_batch:
         st.error("Please upload a ZIP folder containing image files.")
     else:
         with ZipFile(uploaded_folder, 'r') as zip_ref:
-            zip_ref.extractall("temp_images")
+            image_files = [BytesIO(zip_ref.read(name)) for name in zip_ref.namelist() if name.endswith(('png', 'jpg', 'jpeg', 'PNG', 'JPG', 'JPEG'))]
 
-        image_files = [f for f in os.listdir("temp_images") if f.endswith(('png', 'jpg', 'jpeg', 'PNG', 'JPG', 'JPEG'))]
         if not image_files:
             st.error("No valid image files found in the uploaded folder.")
         else:
@@ -118,7 +118,7 @@ if submit_button_batch:
 
             for recommendation in st.session_state["recommendation_data"]:
                 st.image(
-                    os.path.join("temp_images", recommendation["Pond Identifier"] + ".jpg"),
+                    recommendation["Pond Identifier"],
                     caption=recommendation["Pond Identifier"],
                     use_container_width=True,
                 )
@@ -126,14 +126,9 @@ if submit_button_batch:
                 display_similarities('Observation', recommendation['observations'])
                 display_similarities('Recommendation', recommendation['Recommendation'])
 
-            # Display the JSON array of all recommendations
-            # st.json(st.session_state["recommendation_data"])
-            
-            #write to google sheet
-            to_gsheet_batch(st.session_state["recommendation_data"])
-            # print(json.dumps(st.session_state["recommendation_data"], indent=4))
+                # Display the JSON array of all recommendations
+                # st.json(st.session_state["recommendation_data"])
+                # print(json.dumps(st.session_state["recommendation_data"], indent=4))
 
-            # Clean up the temporary images folder
-            for image_file in image_files:
-                os.remove(os.path.join("temp_images", image_file))
-            os.rmdir("temp_images")
+                # Write to Google Sheet
+                to_gsheet_batch(st.session_state["recommendation_data"])
