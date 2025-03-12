@@ -83,8 +83,9 @@ if submit_button_single:
                     d = json.loads(data)
                     st.session_state["recommendation_data"] = d
                     to_gsheet(search_query, d['observations'], d['Recommendation'])
-                except Exception:
-                    st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN!!!')
+                except Exception as e:
+                    st.error(f'Error: {e}')
+                    # st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN!!!')
 
         try:
             with buff:
@@ -97,11 +98,12 @@ if submit_button_single:
                 f_d = st.session_state["recommendation_data"]
                 display_similarities('Observation', f_d['observations'])
                 display_similarities('Recommendation', f_d['Recommendation'])
-                to_gsheet(f_d['observations'], f_d['Recommendation'])
-                # print(f_d)
-        except:
+                # to_gsheet(search_query, f_d['observations'], f_d['Recommendation'])
+                print(f_d)
+        except Exception as e:
+            st.error(f'Error: {e}')
             st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN !!! ')
-
+            
 if submit_button_batch:
     if uploaded_folder is None:
         st.error("Please upload a ZIP folder containing image files.")

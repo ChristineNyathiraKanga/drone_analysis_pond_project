@@ -17,9 +17,9 @@ from google.oauth2 import service_account
 from urllib.error import URLError
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 from requests.exceptions import ConnectionError
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 import pytz
-# load_dotenv()
+load_dotenv()
 
 api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
@@ -72,7 +72,7 @@ def send_whatsapp(message, number):
     messenger.send_message(message, number)
 
 def read_gsheet_from_url(url, sheet_name, credential_path, skip_rows=0, skip_columns=0):
-    credential_path = 'drone-project-445915-006e8606af11.json'
+    credential_path = 'pond-water-analysis-453506-8d3087dc5fe3.json'
     scope = ["https://spreadsheets.google.com/feeds",
              "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive.file",
@@ -120,7 +120,7 @@ def to_gsheet(pond_identity, observation, recommendation):
     current_datetime = datetime.now(kenya_tz)
     formatted_datetime = "VF-" + current_datetime.strftime("%Y-%m-%d-%H:%M")
 
-    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/12A5qKhdutCqPttNkViQ6It9eC0-YIdVxpnMotUUGop4/edit?gid=0#gid=0', 'Sheet1', 'drone-project-445915-006e8606af11.json')
+    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     new_data = {
         'Pond Name': [pond_identity],
@@ -134,7 +134,7 @@ def to_gsheet(pond_identity, observation, recommendation):
     df = pd.concat([df, new_df], ignore_index=True)
     df['Date'] = df['Date'].astype(str)
 
-    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/12A5qKhdutCqPttNkViQ6It9eC0-YIdVxpnMotUUGop4/edit?gid=0#gid=0', 'Sheet1', 'drone-project-445915-006e8606af11.json')
+    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     print('done')
 
@@ -143,7 +143,7 @@ def to_gsheet_batch(recommendation_data):
     current_datetime = datetime.now(kenya_tz)
     formatted_datetime = "VF-" + current_datetime.strftime("%Y-%m-%d-%H:%M")
 
-    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/12A5qKhdutCqPttNkViQ6It9eC0-YIdVxpnMotUUGop4/edit?gid=0#gid=0', 'Sheet1', 'drone-project-445915-006e8606af11.json')
+    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     new_data = []
     for recommendation in recommendation_data:
@@ -160,7 +160,7 @@ def to_gsheet_batch(recommendation_data):
     df = pd.concat([df, new_df], ignore_index=True)
     df['Date'] = df['Date'].astype(str)
 
-    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/12A5qKhdutCqPttNkViQ6It9eC0-YIdVxpnMotUUGop4/edit?gid=0#gid=0', 'Sheet1', 'drone-project-445915-006e8606af11.json')
+    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     print('done')
 
