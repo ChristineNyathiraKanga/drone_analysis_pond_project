@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "pond-water-analysis-453506",
+  "private_key_id": "8d3087dc5fe3fa2a8a228e2971a97a9960272098",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQCynun3KK9BYbG/\nwx8/thZNjdqKX+/sp6Sl7aoHhON/JKLnLhfzL7L1L9STQg92nEag1P5CWW0RNtpq\n/S14rGpfcpujAT6FkYIEMaUg7b7Om+25JTYK+QDqTh+vjMFa8nxgfqbhDk7VcKbI\nyQlDPrrqJ7+4ea1ZKjYYy91Q8PPPxHqR/vDQg0MVGyj/wk3Xb0WMOxM+PL6jqXgG\nDtZS3B+tYtcbsYM/QZInqSZladh5mjkO+m5501lvo2VDVDXTk9S1wyRdcpySFoRX\nAqUpuyhu2zVXcRFXndIhYIlIiZWPXgtrUeiERB/5EsRT13K2KyxhaEKk54lhXOP2\nhHCDFjlNAgMBAAECggEAKC9IQ6qLgxIPgyzKovK8IcaAHBFpULyGdi35yqdC5x++\n5nOgP73DbRXNpTN/dxfBa/1/Fj44I19L1DYRPMzNQZvvF8T34+TQc1EX7UiPXLwH\nx1dvyRgr9IqO5lesSGG1SaA0uv0VDz/Axfs0ckRymKtInqABN8YfVYTHzaXntB4G\ns/eXTf72sGZAof9Qn1GjGeS9RozfTV1IbbSGfW21wnBu9Mkk5ZMJPAZiY7StOTDs\n+XLjuBDMbKGb1jPiEwa2+w2rjmJByGjs8zYQ0S+mAqxQDpa1JvCK8gzXssY0dELG\nIiWmVAg2/gI/V1ooyt+K9nC+lKhgIgMnoKNuJ6m0oQKBgQD1Zgn1sXFA8fY0hNxE\nMMSvQe1IepWzp+YV7C6BH8/TikJ4/nPTw8zNfhht9c/Ek75CpY00mpqP/JOn+89B\nqcmeqJJ9is8F5rKMRzsdI6Xmh6GHAxl9MN/a90UB4WMbVzmqIc72eeD75SfQpeWO\ngKzCKjq5cDyOl4mDB0r6angVXwKBgQC6VlovZCK8AHiyN/Kh6dtM4z1qcls9FsUW\nn9UlzJpXPzdmxkkL4CmkUGVFYx3hptQ3PR5gtrjq1L7AD4vBV+Rt3DcQvHPNfYFS\n1T+dAuFSQOq8coF2d3w7LrHuefBRekYXlSYCrgqbScp+jj+s1npJDXE74Z8W8cXg\nYefyFWzk0wKBgQC+aG1D8Wmh7dyOhaRvWLPUFMBrY4pyus0hp3+x+yAD0JyhSzZO\nUve/Xp7P+1I6AjU3e0MkVO2m2WEsj4sSNQ7XB4+az7CwsH9Lrx1kD7vzMrwXiUUm\nyVx4hzJJMjv3A+gfZVo0Dv+OFBGfqImE17y0b5XfOwIR1e0B+Q+pXCFO2wKBgQC5\nUzsdGU3Gh/2C20wxJyLapMOnhBckeeoJZ2wZzRXQImqaiCmMayVfbCpcyYilrkQw\nsFPvQqxFutQAtzV7VUw2y6fkuFnAjcu6s6cyJPQu16vfQ09poMrpHbcQBS00DBV8\nTPXiAnFAIzMHjbjc0PAMihcNxIdyzYHNefKzfgWwywKBgQCtJoC2l0ftZ/y4EqPw\nlTdirp0So84rl9M/LE/DF7BEeixYevPeDYnRFXkl7gq/dwLVk+tfN5hFMtv7yow4\n772wkPLz1HhmaLyiYjVTYkV3Wzw5WTZ2G2jNpUy10bwp7kuepbzYYAeqM1juDiOX\nzTolPjFnmvdQKUjiy8JvI/kSCg==\n-----END PRIVATE KEY-----\n",
+  "client_email": "production-pond-water-level-an@pond-water-analysis-453506.iam.gserviceaccount.com",
+  "client_id": "101752727065078598182",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/production-pond-water-level-an%40pond-water-analysis-453506.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
