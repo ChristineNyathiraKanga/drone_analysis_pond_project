@@ -11,9 +11,8 @@ import json
 from zipfile import ZipFile
 import os
 from concurrent.futures import ThreadPoolExecutor
-import tempfile
 from io import BytesIO
-from PIL import Image
+from PIL import Image  # Use Pillow instead of PIL
 from reed_analyse import *
 
 st.set_page_config(layout="wide")
@@ -62,83 +61,80 @@ with st.sidebar:
         st.session_state["uploaded_folder"] = uploaded_folder
         submit_button_batch = st.button("Analyse Tube Structures")
 
-    if submit_button_single:
-        if uploaded_file is None:
-            st.error("Please upload an image file.")
-        elif not search_query:
-            st.error("Please enter a pond number/identifier.")
-        else:
-            prompt = get_prompt(submit_button_single)
-            if prompt is not None:
+if submit_button_single:
+    if uploaded_file is None:
+        st.error("Please upload an image file.")
+    elif not search_query:
+        st.error("Please enter a pond number/identifier.")
+    else:
+        prompt = get_prompt(submit_button_single)
+        if prompt is not None:
+            try:
+                st.session_state["recommendation_data"] = {}
+                data = compare_images(prompt, uploaded_file)
+                d = json.loads(data)
+                st.session_state["recommendation_data"] = d
+                to_gsheet(search_query, d['observations'], d['Recommendation'])
+            except Exception as e:
+                st.error(f'Error: {e}')
                 try:
-                    st.session_state["recommendation_data"] = {}
                     data = compare_images(prompt, uploaded_file)
                     d = json.loads(data)
                     st.session_state["recommendation_data"] = d
                     to_gsheet(search_query, d['observations'], d['Recommendation'])
                 except Exception as e:
                     st.error(f'Error: {e}')
-                    try:
-                        data = compare_images(prompt, uploaded_file)
-                        d = json.loads(data)
-                        st.session_state["recommendation_data"] = d
-                        to_gsheet(search_query, d['observations'], d['Recommendation'])
-                    except Exception as e:
-                        st.error(f'Error: {e}')
-                        # st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN!!!')
+                    # st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN!!!')
 
-            try:
-                with buff:
-                    st.image(
-                        uploaded_file,
-                        caption=search_query,
-                        use_container_width=True,
-                    )
-                    st.header(f'Summary: {search_query}')
-                    f_d = st.session_state["recommendation_data"]
-                    display_similarities('Observation', f_d['observations'])
-                    display_similarities('Recommendation', f_d['Recommendation'])
-                    # to_gsheet(search_query, f_d['observations'], f_d['Recommendation'])
-                    print(f_d)
-            except Exception as e:
-                st.error(f'Error: {e}')
-                st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN !!! ')
-                
-    if submit_button_batch:
-        if uploaded_folder is None:
-            st.error("Please upload a ZIP folder containing image files.")
-        else:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                with ZipFile(uploaded_folder, 'r') as zip_ref:
-                    zip_ref.extractall(temp_dir)
+        try:
+            st.image(
+                uploaded_file,
+                caption=search_query,
+                use_container_width=True,
+            )
+            st.header(f'Summary: {search_query}')
+            f_d = st.session_state["recommendation_data"]
+            display_similarities('Observation', f_d['observations'])
+            display_similarities('Recommendation', f_d['Recommendation'])
+            print(f_d)
+        except Exception as e:
+            st.error(f'Error: {e}')
+            st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN !!! ')
 
-                image_files = [f for f in os.listdir(temp_dir) if f.endswith(('png', 'jpg', 'jpeg', 'PNG', 'JPG', 'JPEG'))]
-                if not image_files:
-                    st.error("No valid image files found in the uploaded folder.")
-                else:
-                    st.session_state["recommendation_data"] = []
-                    prompt = get_prompt(submit_button_batch)
+if submit_button_batch:
+    if uploaded_folder is None:
+        st.error("Please upload a ZIP folder containing image files.")
+    else:
+        with ZipFile(uploaded_folder, 'r') as zip_ref:
+            image_files = [f for f in zip_ref.namelist() if f.endswith(('png', 'jpg', 'jpeg', 'PNG', 'JPG', 'JPEG'))]
+            if not image_files:
+                st.error("No valid image files found in the uploaded folder.")
+            else:
+                st.session_state["recommendation_data"] = []
+                prompt = get_prompt(submit_button_batch)
 
-                    with ThreadPoolExecutor() as executor:
-                        futures = [executor.submit(process_image, open(os.path.join(temp_dir, image_file), 'rb'), prompt) for image_file in image_files]
-                        for future in futures:
-                            result = future.result()
-                            if result:
-                                st.session_state["recommendation_data"].append(result)
+                with ThreadPoolExecutor() as executor:
+                    futures = [executor.submit(process_image, zip_ref.open(image_file), prompt) for image_file in image_files]
+                    for future in futures:
+                        result = future.result()
+                        if result:
+                            st.session_state["recommendation_data"].append(result)
 
-                    for recommendation in st.session_state["recommendation_data"]:
-                        image_file = next((f for f in image_files if os.path.splitext(f)[0] == recommendation["Pond Identifier"]), None)
-                        if image_file:
+                for recommendation in st.session_state["recommendation_data"]:
+                    image_file = next((f for f in image_files if os.path.splitext(f)[0] == recommendation["Pond Identifier"]), None)
+                    if image_file:
+                        with zip_ref.open(image_file) as img_file:
+                            image = Image.open(img_file)
                             st.image(
-                                open(os.path.join(temp_dir, image_file), 'rb'),
+                                image,
                                 caption=recommendation["Pond Identifier"],
                                 use_container_width=True,
                             )
-                            st.header(f'Summary: {recommendation["Pond Identifier"]}')
-                            display_similarities('Observation', recommendation['observations'])
-                            display_similarities('Recommendation', recommendation['Recommendation'])
-                        else:
-                            st.error(f"Image file for {recommendation['Pond Identifier']} not found.")
+                        st.header(f'Summary: {recommendation["Pond Identifier"]}')
+                        display_similarities('Observation', recommendation['observations'])
+                        display_similarities('Recommendation', recommendation['Recommendation'])
+                    else:
+                        st.error(f"Image file for {recommendation['Pond Identifier']} not found.")
 
-                    # Write to Google Sheet
-                    to_gsheet_batch(st.session_state["recommendation_data"])
+                # Write to Google Sheet
+                to_gsheet_batch(st.session_state["recommendation_data"])
