@@ -17,9 +17,9 @@ from google.oauth2 import service_account
 from urllib.error import URLError
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 from requests.exceptions import ConnectionError
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import pytz
-load_dotenv()
+# load_dotenv()
 
 api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
