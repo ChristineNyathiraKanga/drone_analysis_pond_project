@@ -12,6 +12,7 @@ from zipfile import ZipFile
 import os
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+import asyncio
 from PIL import Image  # Use Pillow instead of PIL
 from reed_analyse import *
 
@@ -113,12 +114,19 @@ if submit_button_batch:
                 st.session_state["recommendation_data"] = []
                 prompt = get_prompt(submit_button_batch)
 
-                with ThreadPoolExecutor() as executor:
-                    futures = [executor.submit(process_image, zip_ref.open(image_file), prompt) for image_file in image_files]
-                    for future in futures:
-                        result = future.result()
-                        if result:
-                            st.session_state["recommendation_data"].append(result)
+                # Prepare file-like objects for async processing
+                image_file_objs = [zip_ref.open(image_file) for image_file in image_files]
+
+                # Use async batch processing
+                results = asyncio.run(async_compare_images(prompt, image_file_objs, max_concurrent=5))
+                for idx, result in enumerate(results):
+                    if result:
+                        try:
+                            d = json.loads(result)
+                            d["Pond Identifier"] = os.path.splitext(image_files[idx])[0]
+                            st.session_state["recommendation_data"].append(d)
+                        except Exception as e:
+                            st.error(f"Error parsing result for {image_files[idx]}: {e}")
 
                 for recommendation in st.session_state["recommendation_data"]:
                     image_file = next((f for f in image_files if os.path.splitext(f)[0] == recommendation["Pond Identifier"]), None)

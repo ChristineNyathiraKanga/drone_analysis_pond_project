@@ -17,12 +17,18 @@ from google.oauth2 import service_account
 from urllib.error import URLError
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 from requests.exceptions import ConnectionError
+import asyncio
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 # from dotenv import load_dotenv
 import pytz
 # load_dotenv()
 
-api_key = os.getenv('OPENAI_API_KEY')
-client = OpenAI(api_key=api_key)
+
+# api_key = os.getenv('OPENAI_API_KEY')
+# client = OpenAI(api_key=api_key)
+gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
 
 prompt_v3 = """
             I will provide you with an image of a pond, the pond has a colored tube like structure in the middle, the colored tube is used to indicate water levels, colors are ordered as follow from top to bottom: 
@@ -66,6 +72,30 @@ def initialize_session_state():
     if "recommendation_data" not in st.session_state:
         st.session_state["recommendation_data"] = {}
 
+def send_email_report(recommendation_data, recipient_emails, sender_email, sender_password):
+    """
+    Send pond recommendations as an HTML email to multiple recipients.
+    """
+    html = "<h2>Pond Water Level Recommendations</h2>"
+    html += "<table border='1' cellpadding='5'><tr><th>Pond Name</th><th>Observation</th><th>Recommendation</th></tr>"
+    for rec in recommendation_data:
+        html += f"<tr><td>{rec['Pond Identifier']}</td><td>{rec['observations']}</td><td>{rec['Recommendation']}</td></tr>"
+    html += "</table>"
+
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = ", ".join(recipient_emails)
+    msg['Subject'] = "Pond Water Level Recommendations (PRIORITY)"
+    msg.attach(MIMEText(html, 'html'))
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, recipient_emails, msg.as_string())
+        print("Email sent successfully.")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        
 def send_whatsapp(message, number):
     access_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
     messenger = WhatsApp(access_token, phone_number_id='415367251667765')
@@ -163,7 +193,18 @@ def to_gsheet_batch(recommendation_data):
     write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     print('done')
-
+     # --- Send email after writing to gsheet ---
+     
+    recipient_emails = [
+    "christinek@victoryfarmskenya.com",
+    "nsogbuw@victoryfarmskenya.com",
+    "anneo@victoryfarmskenya.com",
+    "brendac@victoryfarmskenya.com"
+    ]
+    sender_email = "productionponds@gmail.com"
+    sender_password = gmail_pass
+    send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
+    
 def change_image_format(image_file):
     """Convert an uploaded image file to a base64-encoded data URL."""
     try:
@@ -208,3 +249,28 @@ def compare_images(prompt, image_1):
     presence_penalty=0)
     response_text = response.choices[0].message.content
     return response_text
+
+# Async batch image processing
+async def async_compare_images(prompt, image_files, max_concurrent=5):
+    """
+    Process images in async batches to avoid overloading the server and hitting API limits.
+    """
+    semaphore = asyncio.Semaphore(max_concurrent)
+    loop = asyncio.get_event_loop()
+    results = []
+
+    async def process_image(image_file):
+        async with semaphore:
+            for attempt in range(3):
+                try:
+                    # Run compare_images in a thread to avoid blocking
+                    result = await loop.run_in_executor(None, compare_images, prompt, image_file)
+                    return result
+                except Exception as e:
+                    print(f"Error processing image: {e}. Retrying ({attempt+1}/3)...")
+                    await asyncio.sleep(2)
+            return None
+
+    tasks = [process_image(img) for img in image_files]
+    results = await asyncio.gather(*tasks)
+    return results
