@@ -26,8 +26,8 @@ import pytz
 # load_dotenv()
 
 
-# api_key = os.getenv('OPENAI_API_KEY')
-# client = OpenAI(api_key=api_key)
+api_key = os.getenv('OPENAI_API_KEY')
+client = OpenAI(api_key=api_key)
 gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
 
 prompt_v3 = """
