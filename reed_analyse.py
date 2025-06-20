@@ -23,6 +23,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 # from dotenv import load_dotenv
 import pytz
+from io import BytesIO
 # load_dotenv()
 
 
@@ -77,9 +78,9 @@ def send_email_report(recommendation_data, recipient_emails, sender_email, sende
     Send pond recommendations as an HTML email to multiple recipients.
     """
     html = "<h2>Pond Water Level Recommendations</h2>"
-    html += "<table border='1' cellpadding='5'><tr><th>Pond Name</th><th>Observation</th><th>Recommendation</th></tr>"
+    html += "<table border='1' cellpadding='5'><tr><th>Pond Category</th><th>Pond Name</th><th>Observation</th><th>Recommendation</th></tr>"
     for rec in recommendation_data:
-        html += f"<tr><td>{rec['Pond Identifier']}</td><td>{rec['observations']}</td><td>{rec['Recommendation']}</td></tr>"
+        html += f"<tr><td>{rec.get('Pond Category', '')}</td><td>{rec['Pond Identifier']}</td><td>{rec['observations']}</td><td>{rec['Recommendation']}</td></tr>"
     html += "</table>"
 
     msg = MIMEMultipart()
@@ -95,7 +96,7 @@ def send_email_report(recommendation_data, recipient_emails, sender_email, sende
         print("Email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
-        
+                   
 def send_whatsapp(message, number):
     access_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
     messenger = WhatsApp(access_token, phone_number_id='415367251667765')
@@ -145,7 +146,7 @@ def write_to_gsheet(output, url, sheet_name, credential_path, clear_before_writi
         worksheet.clear()
     worksheet.update([output.columns.values.tolist()] + output.values.tolist())
 
-def to_gsheet(pond_identity, observation, recommendation):
+def to_gsheet(pond_identity, observation, recommendation, pond_category):
     kenya_tz = pytz.timezone('Africa/Nairobi')
     current_datetime = datetime.now(kenya_tz)
     formatted_datetime = "VF-" + current_datetime.strftime("%Y-%m-%d-%H:%M")
@@ -153,6 +154,7 @@ def to_gsheet(pond_identity, observation, recommendation):
     df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     new_data = {
+        'Pond Category': [pond_category],
         'Pond Name': [pond_identity],
         'Observation': [observation],
         'Recommendation': [recommendation]
@@ -167,7 +169,7 @@ def to_gsheet(pond_identity, observation, recommendation):
     write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     print('done')
-
+    
 def to_gsheet_batch(recommendation_data):
     kenya_tz = pytz.timezone('Africa/Nairobi')
     current_datetime = datetime.now(kenya_tz)
@@ -178,6 +180,7 @@ def to_gsheet_batch(recommendation_data):
     new_data = []
     for recommendation in recommendation_data:
         new_data.append({
+            'Pond Category': recommendation.get('Pond Category', ''),
             'Pond Name': recommendation['Pond Identifier'],
             'Observation': recommendation['observations'],
             'Recommendation': recommendation['Recommendation'],
@@ -193,18 +196,17 @@ def to_gsheet_batch(recommendation_data):
     write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     print('done')
-     # --- Send email after writing to gsheet ---
-     
+    # --- Send email after writing to gsheet ---
     recipient_emails = [
-    "christinek@victoryfarmskenya.com",
-    "nsogbuw@victoryfarmskenya.com",
-    "anneo@victoryfarmskenya.com",
-    "brendac@victoryfarmskenya.com"
+        "christinek@victoryfarmskenya.com"
+        "nsogbuw@victoryfarmskenya.com",
+        "anneo@victoryfarmskenya.com",
+        "brendac@victoryfarmskenya.com"
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
     send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
-    
+
 def change_image_format(image_file):
     """Convert an uploaded image file to a base64-encoded data URL."""
     try:

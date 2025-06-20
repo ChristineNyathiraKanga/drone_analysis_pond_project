@@ -27,6 +27,25 @@ def display_similarities(heading, infomation):
 
 initialize_session_state()
 
+def safe_json_loads(s):
+    # Replace single quotes with double quotes for property names and string values
+    s = re.sub(r"(?<!\\)'", '"', s)
+    try:
+        return json.loads(s)
+    except Exception as e:
+        return None
+
+def extract_category_and_identifier(file_path):
+    parts = file_path.replace("\\", "/").split("/")
+    if len(parts) >= 2:
+        pond_category = parts[0]
+        pond_identifier = os.path.splitext(parts[1])[0]
+    else:
+        pond_category = ""
+        pond_identifier = os.path.splitext(parts[0])[0]
+    return pond_category, pond_identifier
+
+
 # Helper function to get the appropriate prompt
 def get_prompt(submit_button):
     if submit_button:
@@ -66,9 +85,10 @@ def process_image(image_file, prompt):
 
 with st.sidebar:
     with st.expander("Single Image Processing"):
-        uploaded_file = st.file_uploader("Select or drag an image file here", type=['png', 'jpg', 'jpeg'])
+        uploaded_file = st.file_uploader("Select or drag an image file here", type=['png', 'jpg', 'jpeg','JPG','PNG','JPEG'])
         st.session_state["uploaded_image"] = uploaded_file
         search_query = st.text_input("Enter pond number/identifier")
+        pond_category = st.selectbox("Select Pond Category", ['Heap 1 ponds','Heap 2 ponds','Broodstock ponds','Nursery ponds'])
         submit_button_single = st.button("Analyse Tube Structure for Image")
 
     with st.expander("Batch Processing"):
@@ -85,43 +105,47 @@ if submit_button_single:
         prompt = get_prompt(submit_button_single)
         if prompt is not None:
             try:
-                st.session_state["recommendation_data"] = {}
-                data = compare_images(prompt, uploaded_file)
-                d = json.loads(data)
-                st.session_state["recommendation_data"] = d
-                to_gsheet(search_query, d['observations'], d['Recommendation'])
+                result = compare_images(prompt, uploaded_file)
+                d = safe_json_loads(result)
+                if d:
+                    d["Pond Category"] = pond_category
+                    d["Pond Identifier"] = search_query
+                    st.session_state["recommendation_data"] = [d]
+
+                    # Show results
+                    st.image(
+                        uploaded_file,
+                        caption=search_query,
+                        use_container_width=True,
+                    )
+                    st.header(f'Summary: {d["Pond Identifier"]}')
+                    display_similarities('Observation', d['observations'])
+                    display_similarities('Recommendation', d['Recommendation'])
+
+                    # Write to Google Sheet
+                    to_gsheet(d["Pond Identifier"], d["observations"], d["Recommendation"], d["Pond Category"])
+                    
+                    # Optionally send email for single image
+                    recipient_emails = [
+                        "christinek@victoryfarmskenya.com",
+                        "nsogbuw@victoryfarmskenya.com",
+                        "anneo@victoryfarmskenya.com",
+                        "brendac@victoryfarmskenya.com"
+                    ]
+                    sender_email = "productionponds@gmail.com"
+                    sender_password = gmail_pass
+                    send_email_report([d], recipient_emails, sender_email, sender_password)
+                else:
+                    st.error("Could not parse the result as JSON.")
             except Exception as e:
-                st.error(f'Error: {e}')
-                try:
-                    data = compare_images(prompt, uploaded_file)
-                    d = json.loads(data)
-                    st.session_state["recommendation_data"] = d
-                    to_gsheet(search_query, d['observations'], d['Recommendation'])
-                except Exception as e:
-                    st.error(f'Error: {e}')
-                    # st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN!!!')
-
-        try:
-            st.image(
-                uploaded_file,
-                caption=search_query,
-                use_container_width=True,
-            )
-            st.header(f'Summary: {search_query}')
-            f_d = st.session_state["recommendation_data"]
-            display_similarities('Observation', f_d['observations'])
-            display_similarities('Recommendation', f_d['Recommendation'])
-            print(f_d)
-        except Exception as e:
-            st.error(f'Error: {e}')
-            st.error('KINDLY REFRESH THE BROWSER AND TRY AGAIN !!! ')
-
+                st.error(f"Error processing image: {e}")
+                
 if submit_button_batch:
     if uploaded_folder is None:
         st.error("Please upload a ZIP folder containing image files.")
     else:
         with ZipFile(uploaded_folder, 'r') as zip_ref:
-            image_files = [f for f in zip_ref.namelist() if f.lower().endswith(('png', 'jpg', 'jpeg'))]
+            image_files = [f for f in zip_ref.namelist() if f.lower().endswith(('png', 'jpg', 'jpeg','JPG','PNG','JPEG'))]
             if not image_files:
                 st.error("No valid image files found in the uploaded folder.")
             else:
@@ -135,17 +159,21 @@ if submit_button_batch:
                 )
                 for idx, result in enumerate(results):
                     if result:
-                        try:
-                            d = json.loads(result)
-                            d["Pond Identifier"] = os.path.splitext(image_files[idx])[0]
-                            st.session_state["recommendation_data"].append(d)
-                        except Exception as e:
-                            st.error(f"Error parsing result for {image_files[idx]}: {e}")
+                        d = safe_json_loads(result)
+                        if d:
+                            pond_category, pond_identifier = extract_category_and_identifier(image_files[idx])
+                            d["Pond Identifier"] = pond_identifier
+                            d["Pond Category"] = pond_category
+                            d["File Path"] = image_files[idx]
+                            st.session_state["recommendation_data"].append(d)        
+                        else:
+                            st.error(f"Error parsing result for {image_files[idx]}: Invalid JSON\nRaw result: {result}")    
 
                 for recommendation in st.session_state["recommendation_data"]:
-                    image_file = next((f for f in image_files if os.path.splitext(f)[0] == recommendation["Pond Identifier"]), None)
-                    if image_file:
-                        with zip_ref.open(image_file) as img_file:
+                    # Use the stored file path directly
+                    image_file_path = recommendation.get("File Path", None)
+                    if image_file_path:
+                        with zip_ref.open(image_file_path) as img_file:
                             image = Image.open(img_file)
                             st.image(
                                 image,
@@ -157,6 +185,5 @@ if submit_button_batch:
                         display_similarities('Recommendation', recommendation['Recommendation'])
                     else:
                         st.error(f"Image file for {recommendation['Pond Identifier']} not found.")
-
                 # Write to Google Sheet
                 to_gsheet_batch(st.session_state["recommendation_data"])
