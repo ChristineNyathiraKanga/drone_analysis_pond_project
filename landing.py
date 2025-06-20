@@ -34,6 +34,20 @@ def get_prompt(submit_button):
         return prompt_v3
     else:
         return None
+    
+async def process_images_in_batches(prompt, image_files, batch_size=10, max_concurrent=2):
+    """
+    Process images in batches to avoid memory overload and timeouts.
+    """
+    all_results = []
+    total = len(image_files)
+    for i in range(0, total, batch_size):
+        batch = image_files[i:i+batch_size]
+        results = await async_compare_images(prompt, batch, max_concurrent=max_concurrent)
+        all_results.extend(results)
+        print(f"Processed batch {i//batch_size+1} of {((total-1)//batch_size)+1}")
+    return all_results
+
 
 def process_image(image_file, prompt):
     pond_identifier = os.path.splitext(image_file.name)[0]
@@ -107,18 +121,18 @@ if submit_button_batch:
         st.error("Please upload a ZIP folder containing image files.")
     else:
         with ZipFile(uploaded_folder, 'r') as zip_ref:
-            image_files = [f for f in zip_ref.namelist() if f.endswith(('png', 'jpg', 'jpeg', 'PNG', 'JPG', 'JPEG'))]
+            image_files = [f for f in zip_ref.namelist() if f.lower().endswith(('png', 'jpg', 'jpeg'))]
             if not image_files:
                 st.error("No valid image files found in the uploaded folder.")
             else:
                 st.session_state["recommendation_data"] = []
                 prompt = get_prompt(submit_button_batch)
-
-                # Prepare file-like objects for async processing
                 image_file_objs = [zip_ref.open(image_file) for image_file in image_files]
 
-                # Use async batch processing
-                results = asyncio.run(async_compare_images(prompt, image_file_objs, max_concurrent=5))
+                # Process in batches
+                results = asyncio.run(
+                    process_images_in_batches(prompt, image_file_objs, batch_size=10, max_concurrent=2)
+                )
                 for idx, result in enumerate(results):
                     if result:
                         try:

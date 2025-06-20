@@ -221,8 +221,22 @@ def change_image_format(image_file):
         print(f"An error occurred: {e}")
         return None
 
+def resize_image(image_file, max_size=1024):
+    """Resize image to max_size (preserving aspect ratio) and return BytesIO."""
+    try:
+        image = Image.open(image_file)
+        image.thumbnail((max_size, max_size))
+        output = BytesIO()
+        image.save(output, format="PNG")
+        output.seek(0)
+        return output
+    except Exception as e:
+        print(f"Error resizing image: {e}")
+        return image_file  # fallback to original
+    
 def compare_images(prompt, image_1):
-    data_url = change_image_format(image_1)
+    resized_image = resize_image(image_1)
+    data_url = change_image_format(resized_image)
 
     response = client.chat.completions.create(model="gpt-4o",
     messages=[
@@ -249,6 +263,19 @@ def compare_images(prompt, image_1):
     presence_penalty=0)
     response_text = response.choices[0].message.content
     return response_text
+
+async def process_images_in_batches(prompt, image_files, batch_size=10, max_concurrent=2):
+    """
+    Process images in batches to avoid memory overload and timeouts.
+    """
+    all_results = []
+    total = len(image_files)
+    for i in range(0, total, batch_size):
+        batch = image_files[i:i+batch_size]
+        results = await async_compare_images(prompt, batch, max_concurrent=max_concurrent)
+        all_results.extend(results)
+        print(f"Processed batch {i//batch_size+1} of {((total-1)//batch_size)+1}")
+    return all_results
 
 # Async batch image processing
 async def async_compare_images(prompt, image_files, max_concurrent=5):
