@@ -298,7 +298,7 @@ def to_gsheet_batch(recommendation_data):
     # print('done')
     # --- Send email after writing to gsheet ---
     recipient_emails = [
-        "christinek@victoryfarmskenya.com"
+        "christinek@victoryfarmskenya.com",
         "nsogbuw@victoryfarmskenya.com",
         "anneo@victoryfarmskenya.com",
         "brendac@victoryfarmskenya.com"
