@@ -65,7 +65,7 @@ def list_sharepoint_images(sharepoint_link):
     print("Listing folder contents from:", folder_url)
     resp = requests.get(folder_url, headers=headers)
     # print("List status:", resp.status_code)
-    print("List text:", resp.text)
+    # print("List text:", resp.text)
     resp.raise_for_status()
     items = resp.json().get("value", [])
     image_items = [
