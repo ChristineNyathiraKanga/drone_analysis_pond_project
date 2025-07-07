@@ -169,8 +169,8 @@ def send_sms_recommendations(recommendation_data):
         final_chunk = part_header + chunk_text
 
         try:
-            # send_sms(receiver_list, final_chunk)
-            print(f"\n--- SMS Part {idx}/{total_parts} ---\n{final_chunk}\n{'-'*40}")
+            send_sms(receiver_list, final_chunk)
+            # print(f"\n--- SMS Part {idx}/{total_parts} ---\n{final_chunk}\n{'-'*40}")
 
             print(f"SMS Part {idx}/{total_parts} sent to {receiver_list}")
         except Exception as e:
