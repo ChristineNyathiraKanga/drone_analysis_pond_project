@@ -25,6 +25,7 @@ from email.mime.text import MIMEText
 import pytz
 from io import BytesIO
 # load_dotenv()
+from twilio.rest import Client
 
 
 api_key = os.getenv('OPENAI_API_KEY')
@@ -93,15 +94,35 @@ def send_email_report(recommendation_data, recipient_emails, sender_email, sende
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, recipient_emails, msg.as_string())
+            send_whatsapp_recommendations(recommendation_data)
         print("Email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
                    
-def send_whatsapp(message, number):
-    access_token = os.getenv('WHATSAPP_ACCESS_TOKEN')
-    messenger = WhatsApp(access_token, phone_number_id='415367251667765')
-    messenger.send_message(message, number)
+def send_whatsapp_recommendations(recommendation_data, to_number=None):
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = os.getenv("TWILIO_WHATSAPP_FROM")
+    to_number = to_number or os.getenv("TWILIO_WHATSAPP_TO")
+    client = Client(account_sid, auth_token)
 
+    for rec in recommendation_data:
+        msg = (
+            f"Pond Category: {rec.get('Pond Category', '')}\n"
+            f"Pond Name: {rec.get('Pond Identifier', '')}\n"
+            f"Observation: {rec.get('observations', '')}\n"
+            f"Recommendation: {rec.get('Recommendation', '')}"
+        )
+        try:
+            message = client.messages.create(
+                body=msg,
+                from_=from_number,
+                to=to_number
+            )
+            print(f"WhatsApp message sent: SID {message.sid}")
+        except Exception as e:
+            print(f"Failed to send WhatsApp message: {e}")
+            
 def read_gsheet_from_url(url, sheet_name, credential_path, skip_rows=0, skip_columns=0):
     credential_path = 'pond-water-analysis-453506-8d3087dc5fe3.json'
     scope = ["https://spreadsheets.google.com/feeds",
@@ -167,8 +188,8 @@ def to_gsheet(pond_identity, observation, recommendation, pond_category):
     df['Date'] = df['Date'].astype(str)
 
     write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
-
     print('done')
+    send_whatsapp_recommendations(recommendation_data)
     
 def to_gsheet_batch(recommendation_data):
     kenya_tz = pytz.timezone('Africa/Nairobi')
@@ -206,6 +227,7 @@ def to_gsheet_batch(recommendation_data):
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
     send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
+    send_whatsapp_recommendations(recommendation_data)
 
 def change_image_format(image_file):
     """Convert an uploaded image file to a base64-encoded data URL."""
