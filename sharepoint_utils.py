@@ -62,7 +62,7 @@ def list_sharepoint_images(sharepoint_link):
 
     # List children of the resolved folder
     folder_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/children"
-    print("Listing folder contents from:", folder_url)
+    # print("Listing folder contents from:", folder_url)
     resp = requests.get(folder_url, headers=headers)
     # print("List status:", resp.status_code)
     # print("List text:", resp.text)

@@ -2,6 +2,7 @@ import os
 import requests
 import re
 import base64
+import json
 import openai
 from openai import OpenAI
 import pandas as pd
@@ -21,11 +22,11 @@ import asyncio
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 import pytz
 from io import BytesIO
-# load_dotenv()
-from twilio.rest import Client
+load_dotenv()
+# from twilio.rest import Client
 
 
 api_key = os.getenv('OPENAI_API_KEY')
@@ -61,6 +62,63 @@ prompt_v3 = """
                                         {\n  'Recommendation': <recommendation>'\n 'observations': <observations> '\n 'explanation': <explanation> }
                             - Do not add additional formatting or prefaces like ```json to the output.\n\nrespond in only valid json format only, dont add ``` or json"""
 
+
+def send_sms(receiver_list, msg, success_msg=True):
+    """
+    Send SMS to a list of phone numbers using environment-configured SMS gateway.
+    """
+
+    # If receiver_list is passed as JSON string, convert to list
+    if isinstance(receiver_list, str):
+        receiver_list = json.loads(receiver_list)
+        if not isinstance(receiver_list, list):
+            receiver_list = [receiver_list]
+
+    # Optional: validate numbers format (basic)
+    receiver_list = [str(num).strip() for num in receiver_list if str(num).startswith("+")]
+
+    # Read credentials from environment
+    sender_id = os.getenv("SMS_SENDER_ID")
+    api_key = os.getenv("SMS_API_KEY")
+    client_id = os.getenv("SMS_CLIENT_ID")
+    sms_gateway_url = os.getenv("SMS_GATEWAY_URL")
+
+    if not all([sender_id, api_key, client_id, sms_gateway_url]):
+        raise ValueError("SMS configuration incomplete: check your environment variables.")
+
+    # Construct request payload
+    request_body = {
+        "SenderId": sender_id,
+        "MessageParameters": [
+            {"Number": number, "Text": msg} for number in receiver_list
+        ],
+        "ApiKey": api_key,
+        "ClientId": client_id
+    }
+
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
+    response = None
+
+    try:
+        response = requests.post(sms_gateway_url, json=request_body, headers=headers)
+        response.raise_for_status()
+        if success_msg:
+            print(f"SMS sent successfully to: {receiver_list}")
+
+    except requests.exceptions.RequestException as e:
+        error_message = (
+            f"Error sending SMS: {e}\n"
+            f"Status Code: {response.status_code if response else 'N/A'}\n"
+            f"Response Text: {response.text if response else 'N/A'}"
+        )
+        print(error_message)
+        raise RuntimeError(error_message)
+
+
 def initialize_session_state():
     """
          Initializes all necessary session state for storing data across multiple clicks
@@ -73,7 +131,52 @@ def initialize_session_state():
 
     if "recommendation_data" not in st.session_state:
         st.session_state["recommendation_data"] = {}
+    
+def send_sms_recommendations(recommendation_data):
+    receiver_list = [
+        "+254113572784",
+        "+254796503765",
+        "+254711810228",
+    ]
+    MAX_SMS_LENGTH = 1605
+    recommendations_texts = []
+    for idx, rec in enumerate(recommendation_data, 1):
+        rec_msg = (
+            f"\n--- Recommendation {idx} ---\n"
+            f"Pond Category: {rec.get('Pond Category', '')}\n"
+            f"Pond Name: {rec.get('Pond Identifier', '')}\n"
+            f"Observation: {rec.get('observations', '')}\n"
+            f"Recommendation: {rec.get('Recommendation', '')}\n"
+        )
+        recommendations_texts.append(rec_msg)
 
+    chunks = []
+    current_chunk = ""
+    for rec_text in recommendations_texts:
+        if len(current_chunk) + len(rec_text) <= MAX_SMS_LENGTH:
+            current_chunk += rec_text
+        else:
+            chunks.append(current_chunk)
+            current_chunk = rec_text
+
+    if current_chunk:  # don't forget the last chunk
+        chunks.append(current_chunk)
+
+    total_parts = len(chunks)
+
+    for idx, chunk_text in enumerate(chunks, 1):
+        part_header = f"Part {idx}/{total_parts}\n"
+        final_chunk = part_header + chunk_text
+
+        try:
+            # send_sms(receiver_list, final_chunk)
+            print(f"\n--- SMS Part {idx}/{total_parts} ---\n{final_chunk}\n{'-'*40}")
+
+            print(f"SMS Part {idx}/{total_parts} sent to {receiver_list}")
+        except Exception as e:
+            print(f"Failed to send SMS Part {idx}/{total_parts}: {e}")
+
+ 
 def send_email_report(recommendation_data, recipient_emails, sender_email, sender_password):
     """
     Send pond recommendations as an HTML email to multiple recipients.
@@ -94,35 +197,12 @@ def send_email_report(recommendation_data, recipient_emails, sender_email, sende
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, recipient_emails, msg.as_string())
-            send_whatsapp_recommendations(recommendation_data)
+            send_sms_recommendations(recommendation_data)
         print("Email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
                    
-def send_whatsapp_recommendations(recommendation_data, to_number=None):
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_number = os.getenv("TWILIO_WHATSAPP_FROM")
-    to_number = to_number or os.getenv("TWILIO_WHATSAPP_TO")
-    client = Client(account_sid, auth_token)
-
-    for rec in recommendation_data:
-        msg = (
-            f"Pond Category: {rec.get('Pond Category', '')}\n"
-            f"Pond Name: {rec.get('Pond Identifier', '')}\n"
-            f"Observation: {rec.get('observations', '')}\n"
-            f"Recommendation: {rec.get('Recommendation', '')}"
-        )
-        try:
-            message = client.messages.create(
-                body=msg,
-                from_=from_number,
-                to=to_number
-            )
-            print(f"WhatsApp message sent: SID {message.sid}")
-        except Exception as e:
-            print(f"Failed to send WhatsApp message: {e}")
-            
+       
 def read_gsheet_from_url(url, sheet_name, credential_path, skip_rows=0, skip_columns=0):
     credential_path = 'pond-water-analysis-453506-8d3087dc5fe3.json'
     scope = ["https://spreadsheets.google.com/feeds",
@@ -189,7 +269,6 @@ def to_gsheet(pond_identity, observation, recommendation, pond_category):
 
     write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
     print('done')
-    send_whatsapp_recommendations(recommendation_data)
     
 def to_gsheet_batch(recommendation_data):
     kenya_tz = pytz.timezone('Africa/Nairobi')
@@ -216,18 +295,18 @@ def to_gsheet_batch(recommendation_data):
 
     write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
-    print('done')
+    # print('done')
     # --- Send email after writing to gsheet ---
     recipient_emails = [
         "christinek@victoryfarmskenya.com"
-        # "nsogbuw@victoryfarmskenya.com",
-        # "anneo@victoryfarmskenya.com",
-        # "brendac@victoryfarmskenya.com"
+        "nsogbuw@victoryfarmskenya.com",
+        "anneo@victoryfarmskenya.com",
+        "brendac@victoryfarmskenya.com"
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
     send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
-    send_whatsapp_recommendations(recommendation_data)
+    send_sms_recommendations(recommendation_data)
 
 def change_image_format(image_file):
     """Convert an uploaded image file to a base64-encoded data URL."""
