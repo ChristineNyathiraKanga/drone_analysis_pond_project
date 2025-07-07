@@ -15,6 +15,7 @@ from io import BytesIO
 import asyncio
 from PIL import Image  # Use Pillow instead of PIL
 from reed_analyse import *
+from sharepoint_utils import list_sharepoint_images
 
 st.set_page_config(layout="wide")
 
@@ -90,11 +91,16 @@ with st.sidebar:
         search_query = st.text_input("Enter pond number/identifier")
         pond_category = st.selectbox("Select Pond Category", ['Heap 1 ponds','Heap 2 ponds','Broodstock ponds','Nursery ponds'])
         submit_button_single = st.button("Analyse Tube Structure for Image")
+    
+    with st.expander("Batch Processing (SharePoint Link)"):
+        sharepoint_link = st.text_input("Paste SharePoint folder link containing images")
+        submit_button_batch = st.button("Analyse Tube Structures from SharePoint")
 
-    with st.expander("Batch Processing"):
-        uploaded_folder = st.file_uploader("Select or drag a ZIP folder with image files here", type=['zip'])
-        st.session_state["uploaded_folder"] = uploaded_folder
-        submit_button_batch = st.button("Analyse Tube Structures")
+
+    # with st.expander("Batch Processing"):
+    #     uploaded_folder = st.file_uploader("Select or drag a ZIP folder with image files here", type=['zip'])
+    #     st.session_state["uploaded_folder"] = uploaded_folder
+    #     submit_button_batch = st.button("Analyse Tube Structures")
 
 if submit_button_single:
     if uploaded_file is None:
@@ -140,50 +146,108 @@ if submit_button_single:
             except Exception as e:
                 st.error(f"Error processing image: {e}")
                 
+# if submit_button_batch:
+#     if uploaded_folder is None:
+#         st.error("Please upload a ZIP folder containing image files.")
+#     else:
+#         with ZipFile(uploaded_folder, 'r') as zip_ref:
+#             image_files = [f for f in zip_ref.namelist() if f.lower().endswith(('png', 'jpg', 'jpeg','JPG','PNG','JPEG'))]
+#             if not image_files:
+#                 st.error("No valid image files found in the uploaded folder.")
+#             else:
+#                 st.session_state["recommendation_data"] = []
+#                 prompt = get_prompt(submit_button_batch)
+#                 image_file_objs = [zip_ref.open(image_file) for image_file in image_files]
+
+#                 # Process in batches
+#                 results = asyncio.run(
+#                     process_images_in_batches(prompt, image_file_objs, batch_size=10, max_concurrent=2)
+#                 )
+#                 for idx, result in enumerate(results):
+#                     if result:
+#                         d = safe_json_loads(result)
+#                         if d:
+#                             pond_category, pond_identifier = extract_category_and_identifier(image_files[idx])
+#                             d["Pond Identifier"] = pond_identifier
+#                             d["Pond Category"] = pond_category
+#                             d["File Path"] = image_files[idx]
+#                             st.session_state["recommendation_data"].append(d)        
+#                         else:
+#                             st.error(f"Error parsing result for {image_files[idx]}: Invalid JSON\nRaw result: {result}")    
+
+#                 for recommendation in st.session_state["recommendation_data"]:
+#                     # Use the stored file path directly
+#                     image_file_path = recommendation.get("File Path", None)
+#                     if image_file_path:
+#                         with zip_ref.open(image_file_path) as img_file:
+#                             image = Image.open(img_file)
+#                             st.image(
+#                                 image,
+#                                 caption=recommendation["Pond Identifier"],
+#                                 use_container_width=True,
+#                             )
+#                         st.header(f'Summary: {recommendation["Pond Identifier"]}')
+#                         display_similarities('Observation', recommendation['observations'])
+#                         display_similarities('Recommendation', recommendation['Recommendation'])
+#                     else:
+#                         st.error(f"Image file for {recommendation['Pond Identifier']} not found.")
+#                 # Write to Google Sheet
+#                 to_gsheet_batch(st.session_state["recommendation_data"])
+
 if submit_button_batch:
-    if uploaded_folder is None:
-        st.error("Please upload a ZIP folder containing image files.")
+    if not sharepoint_link:
+        st.error("Please provide a SharePoint folder link.")
     else:
-        with ZipFile(uploaded_folder, 'r') as zip_ref:
-            image_files = [f for f in zip_ref.namelist() if f.lower().endswith(('png', 'jpg', 'jpeg','JPG','PNG','JPEG'))]
-            if not image_files:
-                st.error("No valid image files found in the uploaded folder.")
+        try:
+            st.info("Fetching image URLs from SharePoint...")
+            image_items, image_urls = list_sharepoint_images(sharepoint_link)
+            if not image_urls:
+                st.error("No image files found in the provided SharePoint folder.")
             else:
                 st.session_state["recommendation_data"] = []
                 prompt = get_prompt(submit_button_batch)
-                image_file_objs = [zip_ref.open(image_file) for image_file in image_files]
 
-                # Process in batches
-                results = asyncio.run(
-                    process_images_in_batches(prompt, image_file_objs, batch_size=10, max_concurrent=2)
-                )
+                async def process_sharepoint_images(prompt, image_urls):
+                    import aiohttp
+                    results = []
+                    async with aiohttp.ClientSession() as session:
+                        for url in image_urls:
+                            async with session.get(url) as resp:
+                                if resp.status == 200:
+                                    img_bytes = await resp.read()
+                                    img_file = BytesIO(img_bytes)
+                                    result = await async_compare_images(prompt, [img_file], max_concurrent=1)
+                                    results.extend(result)
+                                else:
+                                    results.append(None)
+                    return results
+
+                results = asyncio.run(process_sharepoint_images(prompt, image_urls))
                 for idx, result in enumerate(results):
                     if result:
                         d = safe_json_loads(result)
                         if d:
-                            pond_category, pond_identifier = extract_category_and_identifier(image_files[idx])
+                            item = image_items[idx]
+                            pond_identifier = os.path.splitext(item["name"])[0]
+                            pond_category = item["parentReference"]["name"]
+                            image_url = item["@microsoft.graph.downloadUrl"]
+
                             d["Pond Identifier"] = pond_identifier
                             d["Pond Category"] = pond_category
-                            d["File Path"] = image_files[idx]
-                            st.session_state["recommendation_data"].append(d)        
+                            d["File Path"] = image_url
+                            st.session_state["recommendation_data"].append(d)
                         else:
-                            st.error(f"Error parsing result for {image_files[idx]}: Invalid JSON\nRaw result: {result}")    
+                            st.error(f"Error parsing result for image {idx+1}: Invalid JSON\nRaw result: {result}")
 
                 for recommendation in st.session_state["recommendation_data"]:
-                    # Use the stored file path directly
-                    image_file_path = recommendation.get("File Path", None)
-                    if image_file_path:
-                        with zip_ref.open(image_file_path) as img_file:
-                            image = Image.open(img_file)
-                            st.image(
-                                image,
-                                caption=recommendation["Pond Identifier"],
-                                use_container_width=True,
-                            )
+                    image_url = recommendation.get("File Path", None)
+                    if image_url:
+                        st.image(image_url, caption=recommendation["Pond Identifier"], use_container_width=True)
                         st.header(f'Summary: {recommendation["Pond Identifier"]}')
                         display_similarities('Observation', recommendation['observations'])
                         display_similarities('Recommendation', recommendation['Recommendation'])
                     else:
-                        st.error(f"Image file for {recommendation['Pond Identifier']} not found.")
-                # Write to Google Sheet
+                        st.error(f"Image for {recommendation['Pond Identifier']} not found.")
                 to_gsheet_batch(st.session_state["recommendation_data"])
+        except Exception as e:
+            st.error(f"Error fetching or processing images: {e}")

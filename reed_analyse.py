@@ -199,9 +199,9 @@ def to_gsheet_batch(recommendation_data):
     # --- Send email after writing to gsheet ---
     recipient_emails = [
         "christinek@victoryfarmskenya.com"
-        "nsogbuw@victoryfarmskenya.com",
-        "anneo@victoryfarmskenya.com",
-        "brendac@victoryfarmskenya.com"
+        # "nsogbuw@victoryfarmskenya.com",
+        # "anneo@victoryfarmskenya.com",
+        # "brendac@victoryfarmskenya.com"
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
@@ -279,14 +279,12 @@ async def process_images_in_batches(prompt, image_files, batch_size=10, max_conc
         print(f"Processed batch {i//batch_size+1} of {((total-1)//batch_size)+1}")
     return all_results
 
-# Async batch image processing
-async def async_compare_images(prompt, image_files, max_concurrent=5):
+async def async_compare_images(prompt, image_files, max_concurrent=15):
     """
     Process images in async batches to avoid overloading the server and hitting API limits.
     """
     semaphore = asyncio.Semaphore(max_concurrent)
     loop = asyncio.get_event_loop()
-    results = []
 
     async def process_image(image_file):
         async with semaphore:
