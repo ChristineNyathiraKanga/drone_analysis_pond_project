@@ -368,6 +368,7 @@ def to_gsheet_batch(recommendation_data):
         "steve.moran@victoryfarmskenya.com",
         "edna@victoryfarmskenya.com",
         "Narcisos@victoryfarmskenya.com",
+        "Norman@victoryfarmskenya.com",
         "nchew@victoryfarmskenya.com",
         "Orlandod@victoryfarmskenya.com"
     ]
