@@ -22,10 +22,10 @@ import asyncio
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 import pytz
 from io import BytesIO
-# load_dotenv()
+load_dotenv()
 # from twilio.rest import Client
 
 
@@ -140,17 +140,18 @@ def send_sms_recommendations(recommendation_data):
         "+254724920866",
         "+254112952380",
         "+254111998026",
-        "+254704193566",
         "+254711811567",
         "+254711811569",
         "+254711811274"
     ]
+    kenya_tz = pytz.timezone('Africa/Nairobi')
+    current_datetime = datetime.now(kenya_tz)
     MAX_SMS_LENGTH = 1605
     recommendations_texts = []
     for idx, rec in enumerate(recommendation_data, 1):
         rec_msg = (
             f"\n--- Recommendation {idx} ---\n"
-            f"Pond Category: {rec.get('Pond Category', '')}\n"
+            f"Date: {current_datetime.strftime('%Y-%m-%d')}\n"
             f"Pond Name: {rec.get('Pond Identifier', '')}\n"
             f"Observation: {rec.get('observations', '')}\n"
             f"Recommendation: {rec.get('Recommendation', '')}\n"
@@ -185,13 +186,15 @@ def send_sms_recommendations(recommendation_data):
 
  
 def send_email_report(recommendation_data, recipient_emails, sender_email, sender_password):
+    kenya_tz = pytz.timezone('Africa/Nairobi')
+    current_datetime = datetime.now(kenya_tz)
     """
     Send pond recommendations as an HTML email to multiple recipients.
     """
     html = "<h2>Pond Water Level Recommendations</h2>"
-    html += "<table border='1' cellpadding='5'><tr><th>Pond Category</th><th>Pond Name</th><th>Observation</th><th>Recommendation</th></tr>"
+    html += "<table border='1' cellpadding='5'><tr><th>Date</th><th>Pond Name</th><th>Observation</th><th>Recommendation</th></tr>"
     for rec in recommendation_data:
-        html += f"<tr><td>{rec.get('Pond Category', '')}</td><td>{rec['Pond Identifier']}</td><td>{rec['observations']}</td><td>{rec['Recommendation']}</td></tr>"
+        html += f"<tr><td>{current_datetime.strftime('%Y-%m-%d')}</td><td>{rec['Pond Identifier']}</td><td>{rec['observations']}</td><td>{rec['Recommendation']}</td></tr>"
     html += "</table>"
 
     msg = MIMEMultipart()
@@ -204,7 +207,7 @@ def send_email_report(recommendation_data, recipient_emails, sender_email, sende
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, recipient_emails, msg.as_string())
-            send_sms_recommendations(recommendation_data)
+            # send_sms_recommendations(recommendation_data)
         print("Email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
@@ -334,19 +337,15 @@ def to_gsheet_batch(recommendation_data):
 
     new_df = pd.DataFrame(new_data)
     
-    # Ensure both DataFrames have the same columns for safe concatenation
     if not df.empty and not new_df.empty:
-        # Get the union of columns and reindex both DataFrames
-        all_columns = list(set(df.columns) | set(new_df.columns))
+        all_columns = list(df.columns) + [col for col in new_df.columns if col not in df.columns]
         df = df.reindex(columns=all_columns, fill_value='')
         new_df = new_df.reindex(columns=all_columns, fill_value='')
 
-    # Append the new rows to the existing DataFrame
     try:
         df = pd.concat([df, new_df], ignore_index=True)
     except ValueError as e:
         if "Reindexing only valid with uniquely valued Index objects" in str(e):
-            # Reset indices and try again
             df = df.reset_index(drop=True)
             new_df = new_df.reset_index(drop=True)
             df = pd.concat([df, new_df], ignore_index=True)
@@ -368,8 +367,9 @@ def to_gsheet_batch(recommendation_data):
         "irenem@victoryfarmskenya.com",
         "steve.moran@victoryfarmskenya.com",
         "edna@victoryfarmskenya.com",
-        "edna@victoryfarmskenya.com",
-        "Narcisos@victoryfarmskenya.com"
+        "Narcisos@victoryfarmskenya.com",
+        "nchew@victoryfarmskenya.com",
+        "Orlandod@victoryfarmskenya.com"
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
