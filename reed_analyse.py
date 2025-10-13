@@ -360,21 +360,21 @@ def to_gsheet_batch(recommendation_data):
     # --- Send email after writing to gsheet ---
     recipient_emails = [
         "christinek@victoryfarmskenya.com",
-        # "nsogbuw@victoryfarmskenya.com",
-        # "anneo@victoryfarmskenya.com",
-        # "brendac@victoryfarmskenya.com",
-        # "philipa@victoryfarmskenya.com",
-        # "colvina@victoryfarmskenya.com",
-        # "irenem@victoryfarmskenya.com",
-        # "steve.moran@victoryfarmskenya.com",
-        # "edna@victoryfarmskenya.com",
-        # "edna@victoryfarmskenya.com",
-        # "Narcisos@victoryfarmskenya.com"
+        "nsogbuw@victoryfarmskenya.com",
+        "anneo@victoryfarmskenya.com",
+        "brendac@victoryfarmskenya.com",
+        "philipa@victoryfarmskenya.com",
+        "colvina@victoryfarmskenya.com",
+        "irenem@victoryfarmskenya.com",
+        "steve.moran@victoryfarmskenya.com",
+        "edna@victoryfarmskenya.com",
+        "edna@victoryfarmskenya.com",
+        "Narcisos@victoryfarmskenya.com"
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
     send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
-    # send_sms_recommendations(recommendation_data)
+    send_sms_recommendations(recommendation_data)
 
 def change_image_format(image_file):
     """Convert an uploaded image file to a base64-encoded data URL."""
