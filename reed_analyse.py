@@ -370,7 +370,8 @@ def to_gsheet_batch(recommendation_data):
         "Narcisos@victoryfarmskenya.com",
         "Norman@victoryfarmskenya.com",
         "nchew@victoryfarmskenya.com",
-        "Orlandod@victoryfarmskenya.com"
+        "Orlandod@victoryfarmskenya.com",
+        "georgiah@victoryfarmskenya.com"
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
