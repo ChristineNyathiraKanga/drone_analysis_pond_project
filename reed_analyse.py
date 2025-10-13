@@ -22,10 +22,10 @@ import asyncio
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 import pytz
 from io import BytesIO
-# load_dotenv()
+load_dotenv()
 # from twilio.rest import Client
 
 
@@ -259,8 +259,20 @@ def write_to_gsheet(output, url, sheet_name, credential_path, clear_before_writi
     # Handle NaN values and ensure the DataFrame is clean
     output = output.fillna('')  # Use fillna instead of replace for NaN values
     
-    # Ensure no duplicate column names
-    output.columns = pd.io.common.dedup_names(output.columns, is_potential_multiindex=False)
+    # Ensure no duplicate column names - custom implementation
+    def make_unique_columns(columns):
+        seen = {}
+        unique_cols = []
+        for col in columns:
+            if col in seen:
+                seen[col] += 1
+                unique_cols.append(f"{col}.{seen[col]}")
+            else:
+                seen[col] = 0
+                unique_cols.append(col)
+        return unique_cols
+    
+    output.columns = make_unique_columns(output.columns)
     
     scope = ['https://spreadsheets.google.com/feeds',
              'https://www.googleapis.com/auth/drive']
@@ -348,21 +360,21 @@ def to_gsheet_batch(recommendation_data):
     # --- Send email after writing to gsheet ---
     recipient_emails = [
         "christinek@victoryfarmskenya.com",
-        "nsogbuw@victoryfarmskenya.com",
-        "anneo@victoryfarmskenya.com",
-        "brendac@victoryfarmskenya.com",
-        "philipa@victoryfarmskenya.com",
-        "colvina@victoryfarmskenya.com",
-        "irenem@victoryfarmskenya.com",
-        "steve.moran@victoryfarmskenya.com",
-        "edna@victoryfarmskenya.com",
-        "edna@victoryfarmskenya.com",
-        "Narcisos@victoryfarmskenya.com"
+        # "nsogbuw@victoryfarmskenya.com",
+        # "anneo@victoryfarmskenya.com",
+        # "brendac@victoryfarmskenya.com",
+        # "philipa@victoryfarmskenya.com",
+        # "colvina@victoryfarmskenya.com",
+        # "irenem@victoryfarmskenya.com",
+        # "steve.moran@victoryfarmskenya.com",
+        # "edna@victoryfarmskenya.com",
+        # "edna@victoryfarmskenya.com",
+        # "Narcisos@victoryfarmskenya.com"
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
     send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
-    send_sms_recommendations(recommendation_data)
+    # send_sms_recommendations(recommendation_data)
 
 def change_image_format(image_file):
     """Convert an uploaded image file to a base64-encoded data URL."""
