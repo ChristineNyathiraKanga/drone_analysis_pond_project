@@ -22,10 +22,10 @@ import asyncio
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import pytz
 from io import BytesIO
-load_dotenv()
+# load_dotenv()
 # from twilio.rest import Client
 
 
