@@ -137,6 +137,13 @@ def send_sms_recommendations(recommendation_data):
         "+254113572784",
         "+254796503765",
         "+254711810228",
+        "+254724920866",
+        "+254112952380",
+        "+254111998026",
+        "+254704193566",
+        "+254711811567",
+        "+254711811569",
+        "+254711811274"
     ]
     MAX_SMS_LENGTH = 1605
     recommendations_texts = []
@@ -220,7 +227,19 @@ def read_gsheet_from_url(url, sheet_name, credential_path, skip_rows=0, skip_col
             wks = gc.open_by_url(url).worksheet(sheet_name)
             data = wks.get_all_values()
             headers = data.pop(skip_rows)
-            df = pd.DataFrame(data[(skip_rows):], columns=headers).iloc[:, skip_columns:]
+            
+            # Handle duplicate column names by making them unique
+            seen = {}
+            unique_headers = []
+            for header in headers:
+                if header in seen:
+                    seen[header] += 1
+                    unique_headers.append(f"{header}_{seen[header]}")
+                else:
+                    seen[header] = 0
+                    unique_headers.append(header)
+            
+            df = pd.DataFrame(data[(skip_rows):], columns=unique_headers).iloc[:, skip_columns:]
             break
         except (TimeoutError, ConnectionError, NewConnectionError, MaxRetryError):
             if trial < 4:
@@ -237,7 +256,12 @@ def read_gsheet_from_url(url, sheet_name, credential_path, skip_rows=0, skip_col
     return df
 
 def write_to_gsheet(output, url, sheet_name, credential_path, clear_before_writing=True):
-    output = output.replace(np.nan, '')
+    # Handle NaN values and ensure the DataFrame is clean
+    output = output.fillna('')  # Use fillna instead of replace for NaN values
+    
+    # Ensure no duplicate column names
+    output.columns = pd.io.common.dedup_names(output.columns, is_potential_multiindex=False)
+    
     scope = ['https://spreadsheets.google.com/feeds',
              'https://www.googleapis.com/auth/drive']
     credentials = ServiceAccountCredentials.from_json_keyfile_name(credential_path, scope)
@@ -252,7 +276,7 @@ def to_gsheet(pond_identity, observation, recommendation, pond_category):
     current_datetime = datetime.now(kenya_tz)
     formatted_datetime = "VF-" + current_datetime.strftime("%Y-%m-%d-%H:%M")
 
-    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
+    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Input', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     new_data = {
         'Pond Category': [pond_category],
@@ -264,10 +288,19 @@ def to_gsheet(pond_identity, observation, recommendation, pond_category):
     new_df['Date'] = formatted_datetime
 
     # Append the new row to the existing DataFrame
-    df = pd.concat([df, new_df], ignore_index=True)
+    try:
+        df = pd.concat([df, new_df], ignore_index=True)
+    except ValueError as e:
+        if "Reindexing only valid with uniquely valued Index objects" in str(e):
+            # Reset indices and try again
+            df = df.reset_index(drop=True)
+            new_df = new_df.reset_index(drop=True)
+            df = pd.concat([df, new_df], ignore_index=True)
+        else:
+            raise e
     df['Date'] = df['Date'].astype(str)
 
-    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
+    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Input', 'pond-water-analysis-453506-8d3087dc5fe3.json')
     print('done')
     
 def to_gsheet_batch(recommendation_data):
@@ -275,7 +308,7 @@ def to_gsheet_batch(recommendation_data):
     current_datetime = datetime.now(kenya_tz)
     formatted_datetime = "VF-" + current_datetime.strftime("%Y-%m-%d-%H:%M")
 
-    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
+    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Input', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     new_data = []
     for recommendation in recommendation_data:
@@ -288,12 +321,28 @@ def to_gsheet_batch(recommendation_data):
         })
 
     new_df = pd.DataFrame(new_data)
+    
+    # Ensure both DataFrames have the same columns for safe concatenation
+    if not df.empty and not new_df.empty:
+        # Get the union of columns and reindex both DataFrames
+        all_columns = list(set(df.columns) | set(new_df.columns))
+        df = df.reindex(columns=all_columns, fill_value='')
+        new_df = new_df.reindex(columns=all_columns, fill_value='')
 
     # Append the new rows to the existing DataFrame
-    df = pd.concat([df, new_df], ignore_index=True)
+    try:
+        df = pd.concat([df, new_df], ignore_index=True)
+    except ValueError as e:
+        if "Reindexing only valid with uniquely valued Index objects" in str(e):
+            # Reset indices and try again
+            df = df.reset_index(drop=True)
+            new_df = new_df.reset_index(drop=True)
+            df = pd.concat([df, new_df], ignore_index=True)
+        else:
+            raise e
     df['Date'] = df['Date'].astype(str)
 
-    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Sheet1', 'pond-water-analysis-453506-8d3087dc5fe3.json')
+    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Input', 'pond-water-analysis-453506-8d3087dc5fe3.json')
 
     # print('done')
     # --- Send email after writing to gsheet ---
@@ -301,7 +350,14 @@ def to_gsheet_batch(recommendation_data):
         "christinek@victoryfarmskenya.com",
         "nsogbuw@victoryfarmskenya.com",
         "anneo@victoryfarmskenya.com",
-        "brendac@victoryfarmskenya.com"
+        "brendac@victoryfarmskenya.com",
+        "philipa@victoryfarmskenya.com",
+        "colvina@victoryfarmskenya.com",
+        "irenem@victoryfarmskenya.com",
+        "steve.moran@victoryfarmskenya.com",
+        "edna@victoryfarmskenya.com",
+        "edna@victoryfarmskenya.com",
+        "Narcisos@victoryfarmskenya.com"
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
