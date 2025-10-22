@@ -50,7 +50,7 @@ prompt_v3 = """
                                 recommendation: Urgent pond refill 
                                 observation: Red
                             - if blue, green and white are visible : 
-                                recommendation: At risk, refill at next day cycle
+                                recommendation: Need to fill
                                 observation: Blue
                             - if green and white are visible :  
                                 recommendation: No action needed
