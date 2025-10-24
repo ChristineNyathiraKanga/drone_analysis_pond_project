@@ -34,34 +34,56 @@ client = OpenAI(api_key=api_key)
 gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
 
 prompt_v3 = """
-            I will provide you with an image of a pond, the pond has a colored tube like structure in the middle, the colored tube is used to indicate water levels, colors are ordered as follow from top to bottom: 
-            1. white plate , pond is full 
-            2. green plate,  safe level no need for refill. 
-            3. blue plate , average risk still needs refill 
-            4. red plate ,  critical level, urgent pond refill 
+            I will provide you with an image of a pond with a colored tube/gauge structure in the middle used to indicate water levels. The colored plates are arranged in a specific order from top to bottom:
+            
+            Color arrangement (top to bottom):
+            1. WHITE plate (top) - pond is full 
+            2. GREEN plate (second) - safe level, no need for refill
+            3. BLUE plate (third) - average risk, still needs refill 
+            4. RED plate (bottom) - critical level, urgent pond refill required
 
-            your job 
-                - Examine the image 
-                - Identify all colors visible considering factors of different hues of the colors. 
-                - Based on the colors observed, assess the current water level of the pond. 
-                - Please provide a brief explanation to justify your assessment.
-                -  Based on the colors observed give the following recommendation and observations:
-                            - if red, blue, green and white are visible : 
-                                recommendation: Urgent pond refill 
-                                observation: Red
-                            - if blue, green and white are visible : 
-                                recommendation: Need to fill
-                                observation: Blue
-                            - if green and white are visible :  
-                                recommendation: No action needed
-                                observation: Green
-                            - if only white  : 
-                                recommendation: no more filling
-                                observation: White
-                - Return your evaluation as a JSON object in the following format:
-                                        {\n  'Recommendation': <recommendation>'\n 'observations': <observations> '\n 'explanation': <explanation> }
-                            - Do not add additional formatting or prefaces like ```json to the output.\n\nrespond in only valid json format only, dont add ``` or json"""
+            Your job:
+                - Examine the image carefully
+                - Identify ALL colors visible on the gauge, considering different hues and lighting conditions
+                - Consider water reflections which may appear as dirty green/brown hues that may reflect on the water
+                - The water level is determined by which plates are visible above the water line
+                - You must see ALL visible colored plates, not just focus on one color
+                - Based on ALL colors observed, assess the current water level of the pond
+                - Provide a brief explanation to justify your assessment
+                - Use the WHITE plate as the primary visual anchor: it is usually the brightest/most visible and is always at the very top. Confirm WHITE first, then determine which plates below it are visible above water.
 
+            Recommendation and observation rules based on ALL visible colors:
+                - If RED, BLUE, GREEN, and WHITE plates are ALL visible above water:
+                    recommendation: "Urgent pond refill"
+                    observation: "Red"
+                - If BLUE, GREEN, and WHITE plates are ALL visible above water:
+                    recommendation: "Need to fill"
+                    observation: "Blue"  
+                - If GREEN and WHITE plates are visible above water:
+                    recommendation: "No action needed"
+                    observation: "Green"
+                - Disambiguation: If only WHITE and a plate directly below it are visible and that second plate looks teal/cyan/blueish due to fading, lighting, or water refraction, classify it as GREEN (because the second plate is always GREEN). Only classify BLUE when the third plate position is clearly visible above water.
+                - If only WHITE plate is visible above water:
+                    recommendation: "No more filling"
+                    observation: "White"
+
+            Important notes:
+                - Look for ALL colored plates that are visible above the water line
+                - Always check color arrangement from top to bottom
+                - Water reflections may show as dirty green/brown colors - do not confuse these with the actual colored plates
+                - Green can sometimes appear as a bluish hue (teal/cyan) because of paint fading, camera exposure, or water refraction. When the plate immediately below WHITE appears bluish, treat it as GREEN unless the third plate (BLUE) is also clearly visible above water.
+                - WHITE is typically the most reliable reference. If confidence is low for other colors, anchor on the visibility of the WHITE plate to set the minimum state; then refine based on additional clearly visible plates.
+                - Base your assessment on the actual colored plates of the gauge, not water reflections
+
+            Return your evaluation as a JSON object in the following format:
+            {
+              "Recommendation": "<recommendation>",
+              "observations": "<observations>",
+              "explanation": "<explanation>"
+            }
+            
+            Respond in only valid JSON format. Do not add formatting like ```json or any other prefixes.
+            """
 
 def send_sms(receiver_list, msg, success_msg=True):
     """
