@@ -134,7 +134,7 @@ if submit_button_single:
                     ]
                     sender_email = "productionponds@gmail.com"
                     sender_password = gmail_pass
-                    send_email_report([d], recipient_emails, sender_email, sender_password)
+                    # send_email_report([d], recipient_emails, sender_email, sender_password)
                 else:
                     st.error("Could not parse the result as JSON.")
             except Exception as e:
