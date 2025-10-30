@@ -398,7 +398,7 @@ def to_gsheet_batch(recommendation_data):
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
-    # send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
+    send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
     send_sms_recommendations(recommendation_data)
 
 def change_image_format(image_file):
