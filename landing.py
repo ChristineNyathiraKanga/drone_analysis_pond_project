@@ -121,6 +121,7 @@ if submit_button_single:
                     st.header(f'Summary: {d["Pond Identifier"]}')
                     display_similarities('Observation', d['observations'])
                     display_similarities('Recommendation', d['Recommendation'])
+                    display_similarities('Explanation', d['explanation'])
 
                     # Write to Google Sheet
                     to_gsheet(d["Pond Identifier"], d["observations"], d["Recommendation"], d["Pond Category"])
@@ -193,6 +194,7 @@ if submit_button_batch:
                         st.header(f'Summary: {recommendation["Pond Identifier"]}')
                         display_similarities('Observation', recommendation['observations'])
                         display_similarities('Recommendation', recommendation['Recommendation'])
+                        display_similarities('Explanation', d['explanation'])
                     else:
                         st.error(f"Image for {recommendation['Pond Identifier']} not found.")
                 to_gsheet_batch(st.session_state["recommendation_data"])

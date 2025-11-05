@@ -22,10 +22,10 @@ import asyncio
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 import pytz
 from io import BytesIO
-# load_dotenv()
+load_dotenv()
 # from twilio.rest import Client
 
 
@@ -34,25 +34,42 @@ client = OpenAI(api_key=api_key)
 gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
 
 prompt_v3 = """
-            I will provide you with an image of a pond with a colored tube/gauge structure in the middle used to indicate water levels. The colored plates are arranged in a specific order from top to bottom:
+            I will provide you with an image of a pond with a colored tube/gauge structure in the middle used to indicate water levels. You are analyzing an image of a fish pond that contains a vertical colored gauge/tube used to indicate the pond’s water level.
+            The gauge has 4 colored plates arranged in a fixed order from **top to bottom** as follows:
             
-            Color arrangement (top to bottom):
-            1. WHITE plate (top) - pond is full 
-            2. GREEN plate (second) - safe level, no need for refill
-            3. BLUE plate (third) - average risk, still needs refill 
-            4. RED plate (bottom) - critical level, urgent pond refill required
+            1. WHITE plate (top) - pond is FULL 
+            2. GREEN plate (second) - SAFE level, no need for refill
+            3. BLUE plate (third) - AVERAGE RISK, still needs refill
+            4. RED plate (bottom) - CRITICAL level, urgent pond refill required
 
-            Your job:
-                - Examine the image carefully
-                - Identify ALL colors visible on the gauge, considering different hues and lighting conditions
-                - Consider water reflections which may appear as dirty green/brown hues that may reflect on the water
-                - The water level is determined by which plates are visible above the water line
-                - You must see ALL visible colored plates, not just focus on one color
-                - Based on ALL colors observed, assess the current water level of the pond
-                - Provide a brief explanation to justify your assessment
-                - Use the WHITE plate as the primary visual anchor: it is usually the brightest/most visible and is always at the very top. Confirm WHITE first, then determine which plates below it are visible above water.
+            Your task is to identify the current visible plates above the water line and determine the pond`s water level status.
+            
+            Visual Analysis Rules:
 
-            Recommendation and observation rules based on ALL visible colors:
+            1. Always start from the top (WHITE) and move downward.
+            - Confirm whether the WHITE plate is visible first — it is always at the top.
+            - Then check for GREEN, then BLUE, then RED in that order.
+
+            2. Positional logic override:
+            - The plates’ order never changes.  
+                Therefore, if a color appears out of sequence (e.g. BLUE above GREEN), it must be due to reflection or lighting error — ignore that anomaly.
+
+            3. Reflection handling:
+            - Water and nets may create greenish, bluish, or brownish reflections on the gauge or water.
+            - Treat light blue, teal, or cyan hues below WHITE as GREEN unless the actual BLUE plate position (third) is clearly visible above water.
+            - Ignore reflections on the water surface that are not physically on the gauge structure.
+
+            4. Color fallback rules:
+            - If you see the WHITE plate and the next visible color appears bluish, default to GREEN (second plate) unless the third BLUE plate is fully visible above water.
+            - Only classify BLUE when you can clearly see the third plate section (below the green one) above the waterline.
+            - If the top of the gauge (WHITE) is visible and no lower plates are visible, classify as WHITE.
+            - If you see RED along with BLUE, GREEN, and WHITE visible above water, classify as RED (critical).
+
+            5. Faded or mixed colors:
+            - Slightly faded or dirty colors should still be classified based on their relative position rather than hue intensity.
+            - When unsure, use the known fixed order (WHITE → GREEN → BLUE → RED) to reason spatially.
+            
+            Recommendation and observation rules based on ALL visible colors (Top → Bottom):
                 - If RED, BLUE, GREEN, and WHITE plates are ALL visible above water:
                     recommendation: "Urgent pond refill"
                     observation: "Red"
@@ -67,14 +84,8 @@ prompt_v3 = """
                     recommendation: "No more filling"
                     observation: "White"
 
-            Important notes:
-                - Look for ALL colored plates that are visible above the water line
-                - Always check color arrangement from top to bottom
-                - Water reflections may show as dirty green/brown colors - do not confuse these with the actual colored plates
-                - Green can sometimes appear as a bluish hue (teal/cyan) because of paint fading, camera exposure, or water refraction. When the plate immediately below WHITE appears bluish, treat it as GREEN unless the third plate (BLUE) is also clearly visible above water.
-                - WHITE is typically the most reliable reference. If confidence is low for other colors, anchor on the visibility of the WHITE plate to set the minimum state; then refine based on additional clearly visible plates.
-                - Base your assessment on the actual colored plates of the gauge, not water reflections
-
+            If colors are unclear due to lighting or reflection, always default to the highest plausible water level (e.g., if unsure between green and blue, choose green)
+            
             Return your evaluation as a JSON object in the following format:
             {
               "Recommendation": "<recommendation>",
