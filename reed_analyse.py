@@ -22,9 +22,10 @@ import asyncio
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from dotenv import load_dotenv
 import pytz
 from io import BytesIO
+import cv2
+from dotenv import load_dotenv
 load_dotenv()
 # from twilio.rest import Client
 
@@ -440,10 +441,88 @@ def resize_image(image_file, max_size=1024):
     except Exception as e:
         print(f"Error resizing image: {e}")
         return image_file  # fallback to original
-    
+ 
+def normalize_water_tones(image_file, reduce_factor=0.45):
+    """
+    Desaturate water-like hues (blue/green) to reduce water reflections and
+    make the gauge colors more prominent for downstream AI processing
+    """
+    try:
+        # Accept either a BytesIO/file-like or PIL Image
+        if isinstance(image_file, (BytesIO,)):
+            image_file.seek(0)
+            pil = Image.open(image_file).convert('RGB')
+        elif hasattr(image_file, 'read'):
+            image_file.seek(0)
+            pil = Image.open(image_file).convert('RGB')
+        elif isinstance(image_file, Image.Image):
+            pil = image_file.convert('RGB')
+        else:
+            # try to construct from bytes
+            pil = Image.open(BytesIO(image_file)).convert('RGB')
+
+        arr = np.array(pil)
+        # convert RGB to BGR for OpenCV
+        bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+
+        h = hsv[:, :, 0]
+        s = hsv[:, :, 1]
+        v = hsv[:, :, 2]
+
+        # OpenCV hue range: 0-179
+        # Water-like blue range and green range heuristics
+        blue_mask = (h >= 90) & (h <= 140)
+        green_mask = (h >= 35) & (h <= 85)
+
+        # Combine masks and require some minimum brightness to avoid dark regions
+        bright_mask = v >= 30
+        mask = (blue_mask | green_mask) & bright_mask
+
+        # Apply saturation reduction on masked pixels
+        s_new = s.astype(np.float32)
+        s_new[mask] = s_new[mask] * float(reduce_factor)
+        s_new = np.clip(s_new, 0, 255).astype(np.uint8)
+        hsv[:, :, 1] = s_new
+
+        # Convert back to RGB
+        bgr2 = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        rgb2 = cv2.cvtColor(bgr2, cv2.COLOR_BGR2RGB)
+        pil_out = Image.fromarray(rgb2)
+        out = BytesIO()
+        pil_out.save(out, format='PNG')
+        out.seek(0)
+        return out
+    except Exception as e:
+        print(f"Color normalization failed: {e}")
+        try:
+            if hasattr(image_file, 'read'):
+                image_file.seek(0)
+                return BytesIO(image_file.read())
+            elif isinstance(image_file, Image.Image):
+                out = BytesIO()
+                image_file.save(out, format='PNG')
+                out.seek(0)
+                return out
+        except Exception:
+            return image_file
+        
 def compare_images(prompt, image_1):
     resized_image = resize_image(image_1)
-    data_url = change_image_format(resized_image)
+    try:
+        normalize_flag = os.getenv('COLOR_NORMALIZATION', 'true').lower() in ['1', 'true', 'yes', 'on']
+    except Exception:
+        normalize_flag = True
+
+    if normalize_flag:
+        try:
+            normalized = normalize_water_tones(resized_image)
+            data_url = change_image_format(normalized)
+        except Exception as e:
+            print(f"Normalization failed, falling back: {e}")
+            data_url = change_image_format(resized_image)
+    else:
+        data_url = change_image_format(resized_image)
 
     response = client.chat.completions.create(model="gpt-4o",
     messages=[
