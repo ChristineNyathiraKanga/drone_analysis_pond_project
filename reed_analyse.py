@@ -33,7 +33,6 @@ load_dotenv()
 api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
 gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
-
 prompt_v3 = """
             I will provide you with an image of a pond with a colored tube/gauge structure in the middle used to indicate water levels. You are analyzing an image of a fish pond that contains a vertical colored gauge/tube used to indicate the pond’s water level.
             The gauge has 4 colored plates arranged in a fixed order from **top to bottom** as follows:
@@ -61,6 +60,7 @@ prompt_v3 = """
             - Ignore reflections on the water surface that are not physically on the gauge structure.
 
             4. Color fallback rules:
+            - If you see ONLY the WHITE plate is visible above the water, classify as WHITE
             - If you see the WHITE plate and the next visible color appears bluish, default to GREEN (second plate) unless the third BLUE plate is fully visible above water.
             - Only classify BLUE when you can clearly see the third plate section (below the green one) above the waterline.
             - If the top of the gauge (WHITE) is visible and no lower plates are visible, classify as WHITE.
@@ -164,7 +164,7 @@ def initialize_session_state():
 
     if "recommendation_data" not in st.session_state:
         st.session_state["recommendation_data"] = {}
-    
+
 def send_sms_recommendations(recommendation_data):
     receiver_list = [
         "+254113572784",
@@ -243,178 +243,148 @@ def send_email_report(recommendation_data, recipient_emails, sender_email, sende
         print("Email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
-
-def get_graph_token(tenant_id: str, client_id: str, client_secret: str) -> str:
-    """
-    Obtain an app-only Microsoft Graph token from the tenant-specific v2.0 endpoint
-    """
-    if not all([tenant_id, client_id, client_secret]):
-        raise ValueError("Missing tenant_id/client_id/client_secret for Graph token acquisition")
-
+                                      
+def get_azure_token():
+    tenant_id = os.getenv("SP_TENANT_ID")
+    client_id = os.getenv("SP_CLIENT_ID")
+    client_secret = os.getenv("SP_CLIENT_SECRET")
     token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
     data = {
         "client_id": client_id,
         "client_secret": client_secret,
-        "scope": "https://graph.microsoft.com/.default offline_access",
+        "scope": "https://graph.microsoft.com/.default",
         "grant_type": "client_credentials",
     }
-
     resp = requests.post(token_url, data=data)
-    try:
-        resp.raise_for_status()
-    except Exception as e:
-        raise RuntimeError(f"Token request failed: {e}; status: {getattr(resp,'status_code',None)}; body: {resp.text}")
-
+    resp.raise_for_status()
     token_json = resp.json()
     access_token = token_json.get("access_token")
     if not access_token:
-        raise RuntimeError(f"No access token in token response: {token_json}")
+        raise RuntimeError(f"No access token: {token_json}")
     return access_token
-                                            
-def read_gsheet_from_url(url, sheet_name, credential_path, skip_rows=0, skip_columns=0):
-    credential_path = 'pond-water-analysis-453506-8d3087dc5fe3.json'
-    scope = ["https://spreadsheets.google.com/feeds",
-             "https://www.googleapis.com/auth/spreadsheets",
-             "https://www.googleapis.com/auth/drive.file",
-             "https://www.googleapis.com/auth/drive"]
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(credential_path, scope)
 
-    trial = 1
-    wait_secs = 30
+def get_site_id(token):
+    url = "https://graph.microsoft.com/v1.0/sites/victoryfarmsltd.sharepoint.com:/sites/TechnologyandInnovation"
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    site = resp.json()
+    return site["id"]
 
-    while True:
-        try:
-            gc = gspread.authorize(credentials)
-            wks = gc.open_by_url(url).worksheet(sheet_name)
-            data = wks.get_all_values()
-            headers = data.pop(skip_rows)
-            
-            # Handle duplicate column names by making them unique
-            seen = {}
-            unique_headers = []
-            for header in headers:
-                if header in seen:
-                    seen[header] += 1
-                    unique_headers.append(f"{header}_{seen[header]}")
-                else:
-                    seen[header] = 0
-                    unique_headers.append(header)
-            
-            df = pd.DataFrame(data[(skip_rows):], columns=unique_headers).iloc[:, skip_columns:]
-            break
-        except (TimeoutError, ConnectionError, NewConnectionError, MaxRetryError):
-            if trial < 4:
-                print(f'Failed to collect google sheets for {sheet_name} after {trial} trial(s)\nTRYING AGAIN')
-                time.sleep(wait_secs * trial)
-                trial += 1
-            else:
-                print(f'Failed to collect google sheets for {sheet_name} after {trial} trial(s)')
-                raise
-        except:
-            raise
+def get_drive_id(site_id, token):
+    # Use site name instead of ID
+    url = f"https://graph.microsoft.com/v1.0/sites/TechnologyandInnovation/drive"
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    drive = resp.json()
+    return drive["id"]
 
-    time.sleep(5)
-    return df
+def get_item_id(drive_id, path, token):
+    # Do not encode spaces, let requests handle it
+    url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{path}"
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    item = resp.json()
+    return item["id"]
 
-def write_to_gsheet(output, url, sheet_name, credential_path, clear_before_writing=True):
-    # Handle NaN values and ensure the DataFrame is clean
-    output = output.fillna('')  # Use fillna instead of replace for NaN values
-    
-    # Ensure no duplicate column names - custom implementation
-    def make_unique_columns(columns):
-        seen = {}
-        unique_cols = []
-        for col in columns:
-            if col in seen:
-                seen[col] += 1
-                unique_cols.append(f"{col}.{seen[col]}")
-            else:
-                seen[col] = 0
-                unique_cols.append(col)
-        return unique_cols
-    
-    output.columns = make_unique_columns(output.columns)
-    
-    scope = ['https://spreadsheets.google.com/feeds',
-             'https://www.googleapis.com/auth/drive']
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(credential_path, scope)
-    gc = gspread.authorize(credentials)
-    worksheet = gc.open_by_url(url).worksheet(sheet_name)
-    if clear_before_writing:
-        worksheet.clear()
-    worksheet.update([output.columns.values.tolist()] + output.values.tolist())
+def get_table_id(drive_id, item_id, worksheet_name, table_name, token):
+    # Get worksheet id
+    url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/workbook/worksheets/{worksheet_name}"
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    worksheet = resp.json()
+    worksheet_id = worksheet["id"]
+    # Get tables in worksheet
+    url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/workbook/worksheets/{worksheet_id}/tables"
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    tables = resp.json().get("value", [])
+    for table in tables:
+        if table["name"] == table_name:
+            return table["id"]
+    raise ValueError(f"Table '{table_name}' not found in worksheet '{worksheet_name}'")
 
-def to_gsheet(pond_identity, observation, recommendation, pond_category):
+def add_rows_to_table(drive_id, item_id, table_id, rows, token):
+    # Ensure rows match the table's column count (pad with blanks if needed)
+    def _get_table_column_count():
+        url_cols = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/workbook/tables/{table_id}/columns?$select=index"
+        headers_cols = {"Authorization": f"Bearer {token}"}
+        r_cols = requests.get(url_cols, headers=headers_cols)
+        r_cols.raise_for_status()
+        return len(r_cols.json().get("value", []))
+
+    col_count = _get_table_column_count()
+    padded_rows = [row + [""] * max(0, col_count - len(row)) for row in rows]
+
+    # Create session
+    url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/workbook/createSession"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    resp = requests.post(url, json={"persistChanges": True}, headers=headers)
+    resp.raise_for_status()
+    session = resp.json()
+    session_id = session["id"]
+    # Add rows
+    url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/workbook/tables/{table_id}/rows"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", "workbook-session-id": session_id}
+    body = {"values": padded_rows}
+    resp = requests.post(url, json=body, headers=headers)
+    resp.raise_for_status()
+    # Close session
+    url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/workbook/closeSession"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", "workbook-session-id": session_id}
+    resp = requests.post(url, headers=headers)
+    resp.raise_for_status()
+
+def to_sheet(pond_identity, observation, recommendation, pond_category):
     kenya_tz = pytz.timezone('Africa/Nairobi')
     current_datetime = datetime.now(kenya_tz)
     formatted_datetime = "VF-" + current_datetime.strftime("%Y-%m-%d-%H:%M")
 
-    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Input', 'pond-water-analysis-453506-8d3087dc5fe3.json')
+    token = get_azure_token()
+    sharing_url = "https://victoryfarmsltd.sharepoint.com/:x:/r/sites/TechnologyandInnovation/Shared%20Documents/Drone%20Department/Drone%20Photos/POND%20WATER%20LEVEL%20MANAGEMENT/Pond%20Water%20Analysis%20Project1.xlsx?d=w9dfe35bfc2854d53a2512c15a36ab13d&csf=1&web=1&e=A0OGHh"
+    drive_id, item_id = get_drive_and_item_from_sharing_url(sharing_url, token)
+    table_id = get_table_id(drive_id, item_id, "Input", "Input", token)
 
-    new_data = {
-        'Pond Category': [pond_category],
-        'Pond Name': [pond_identity],
-        'Observation': [observation],
-        'Recommendation': [recommendation]
-    }
-    new_df = pd.DataFrame(new_data)
-    new_df['Date'] = formatted_datetime
+    row = [
+        formatted_datetime,   # Date
+        pond_identity,        # Pond Name
+        observation,          # Observation
+        recommendation,       # Recommendation
+        pond_category         # Pond Category
+    ]
 
-    # Append the new row to the existing DataFrame
-    try:
-        df = pd.concat([df, new_df], ignore_index=True)
-    except ValueError as e:
-        if "Reindexing only valid with uniquely valued Index objects" in str(e):
-            # Reset indices and try again
-            df = df.reset_index(drop=True)
-            new_df = new_df.reset_index(drop=True)
-            df = pd.concat([df, new_df], ignore_index=True)
-        else:
-            raise e
-    df['Date'] = df['Date'].astype(str)
 
-    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Input', 'pond-water-analysis-453506-8d3087dc5fe3.json')
-    print('done')
+    add_rows_to_table(drive_id, item_id, table_id, [row], token)
+    return True
     
-def to_gsheet_batch(recommendation_data):
+def to_sheet_batch(recommendation_data):
     kenya_tz = pytz.timezone('Africa/Nairobi')
     current_datetime = datetime.now(kenya_tz)
     formatted_datetime = "VF-" + current_datetime.strftime("%Y-%m-%d-%H:%M")
 
-    df = read_gsheet_from_url('https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Input', 'pond-water-analysis-453506-8d3087dc5fe3.json')
+    token = get_azure_token()
+    sharing_url = "https://victoryfarmsltd.sharepoint.com/:x:/r/sites/TechnologyandInnovation/Shared%20Documents/Drone%20Department/Drone%20Photos/POND%20WATER%20LEVEL%20MANAGEMENT/Pond%20Water%20Analysis%20Project1.xlsx?d=w9dfe35bfc2854d53a2512c15a36ab13d&csf=1&web=1&e=A0OGHh"
+    drive_id, item_id = get_drive_and_item_from_sharing_url(sharing_url, token)
+    table_id = get_table_id(drive_id, item_id, "Input", "Input", token)
 
-    new_data = []
+    rows = []
     for recommendation in recommendation_data:
-        new_data.append({
-            'Pond Category': recommendation.get('Pond Category', ''),
-            'Pond Name': recommendation['Pond Identifier'],
-            'Observation': recommendation['observations'],
-            'Recommendation': recommendation['Recommendation'],
-            'Date': formatted_datetime
-        })
+        row = [
+            formatted_datetime,                          # Date
+            recommendation.get('Pond Identifier', ''),   # Pond Name
+            recommendation.get('observations', ''),      # Observation
+            recommendation.get('Recommendation', ''),    # Recommendation
+            recommendation.get('Pond Category', '')      # Pond Category
+        ]
+        rows.append(row)
 
-    new_df = pd.DataFrame(new_data)
-    
-    if not df.empty and not new_df.empty:
-        all_columns = list(df.columns) + [col for col in new_df.columns if col not in df.columns]
-        df = df.reindex(columns=all_columns, fill_value='')
-        new_df = new_df.reindex(columns=all_columns, fill_value='')
+    add_rows_to_table(drive_id, item_id, table_id, rows, token)
+    return True
 
-    try:
-        df = pd.concat([df, new_df], ignore_index=True)
-    except ValueError as e:
-        if "Reindexing only valid with uniquely valued Index objects" in str(e):
-            df = df.reset_index(drop=True)
-            new_df = new_df.reset_index(drop=True)
-            df = pd.concat([df, new_df], ignore_index=True)
-        else:
-            raise e
-    df['Date'] = df['Date'].astype(str)
-
-    write_to_gsheet(df, 'https://docs.google.com/spreadsheets/d/11VxTUgviyL6ZnFY0x7yKgaT_e0Dxtaux18sckaUNbig/edit?gid=0#gid=0', 'Input', 'pond-water-analysis-453506-8d3087dc5fe3.json')
-
-    # print('done')
-    # --- Send email after writing to gsheet ---
+    # --- Send email after writing to Excel ---
     recipient_emails = [
         "christinek@victoryfarmskenya.com",
         "nsogbuw@victoryfarmskenya.com",
@@ -609,3 +579,19 @@ async def async_compare_images(prompt, image_files, max_concurrent=15):
     tasks = [process_image(img) for img in image_files]
     results = await asyncio.gather(*tasks)
     return results
+
+def sharing_url_to_share_id(sharing_url):
+    url_bytes = sharing_url.encode("utf-8")
+    b64_url = base64.urlsafe_b64encode(url_bytes).decode("utf-8").rstrip("=")
+    return f"u!{b64_url}"
+
+def get_drive_and_item_from_sharing_url(sharing_url, token):
+    share_id = sharing_url_to_share_id(sharing_url)
+    url = f"https://graph.microsoft.com/v1.0/shares/{share_id}/driveItem"
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    item = resp.json()
+    drive_id = item["parentReference"]["driveId"]
+    item_id = item["id"]
+    return drive_id, item_id
