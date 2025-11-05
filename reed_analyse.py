@@ -382,7 +382,7 @@ def to_sheet_batch(recommendation_data):
         rows.append(row)
 
     add_rows_to_table(drive_id, item_id, table_id, rows, token)
-    return True
+    # return True
 
     # --- Send email after writing to Excel ---
     recipient_emails = [
@@ -404,8 +404,8 @@ def to_sheet_batch(recommendation_data):
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
-    # send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
-    # send_sms_recommendations(recommendation_data)
+    send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
+    send_sms_recommendations(recommendation_data)
 
 def change_image_format(image_file):
     """Convert an uploaded image file to a base64-encoded data URL."""
