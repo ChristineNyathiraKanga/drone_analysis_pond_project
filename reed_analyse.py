@@ -152,7 +152,6 @@ def send_sms(receiver_list, msg, success_msg=True):
         print(error_message)
         raise RuntimeError(error_message)
 
-
 def initialize_session_state():
     """
          Initializes all necessary session state for storing data across multiple clicks
@@ -218,7 +217,6 @@ def send_sms_recommendations(recommendation_data):
         except Exception as e:
             print(f"Failed to send SMS Part {idx}/{total_parts}: {e}")
 
- 
 def send_email_report(recommendation_data, recipient_emails, sender_email, sender_password):
     kenya_tz = pytz.timezone('Africa/Nairobi')
     current_datetime = datetime.now(kenya_tz)
@@ -245,8 +243,34 @@ def send_email_report(recommendation_data, recipient_emails, sender_email, sende
         print("Email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
-                   
-       
+
+def get_graph_token(tenant_id: str, client_id: str, client_secret: str) -> str:
+    """
+    Obtain an app-only Microsoft Graph token from the tenant-specific v2.0 endpoint
+    """
+    if not all([tenant_id, client_id, client_secret]):
+        raise ValueError("Missing tenant_id/client_id/client_secret for Graph token acquisition")
+
+    token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": "https://graph.microsoft.com/.default offline_access",
+        "grant_type": "client_credentials",
+    }
+
+    resp = requests.post(token_url, data=data)
+    try:
+        resp.raise_for_status()
+    except Exception as e:
+        raise RuntimeError(f"Token request failed: {e}; status: {getattr(resp,'status_code',None)}; body: {resp.text}")
+
+    token_json = resp.json()
+    access_token = token_json.get("access_token")
+    if not access_token:
+        raise RuntimeError(f"No access token in token response: {token_json}")
+    return access_token
+                                            
 def read_gsheet_from_url(url, sheet_name, credential_path, skip_rows=0, skip_columns=0):
     credential_path = 'pond-water-analysis-453506-8d3087dc5fe3.json'
     scope = ["https://spreadsheets.google.com/feeds",
@@ -410,8 +434,8 @@ def to_gsheet_batch(recommendation_data):
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
-    send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
-    send_sms_recommendations(recommendation_data)
+    # send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
+    # send_sms_recommendations(recommendation_data)
 
 def change_image_format(image_file):
     """Convert an uploaded image file to a base64-encoded data URL."""
