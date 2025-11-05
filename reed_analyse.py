@@ -25,8 +25,8 @@ from email.mime.text import MIMEText
 import pytz
 from io import BytesIO
 import cv2
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 # from twilio.rest import Client
 
 
