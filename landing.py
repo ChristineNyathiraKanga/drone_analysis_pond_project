@@ -29,12 +29,47 @@ def display_similarities(heading, infomation):
 initialize_session_state()
 
 def safe_json_loads(s):
-    # Replace single quotes with double quotes for property names and string values
-    s = re.sub(r"(?<!\\)'", '"', s)
-    try:
-        return json.loads(s)
-    except Exception as e:
+    # Robust JSON loader that tolerates common model wrappers such as
+    # markdown code fences (```json ... ```), leading language tags (json),
+    # or stray backticks. It will try to extract the first {...} object found
+    # and parse it. Falls back to simple single-quote replacement when needed.
+    if not isinstance(s, str):
         return None
+
+    # Trim whitespace
+    text = s.strip()
+
+    # Remove common fenced code wrappers like ```json ... ``` or ``` ... ```
+    if text.startswith('```') and text.endswith('```'):
+        # strip the leading/trailing fences and any language token
+        inner = '\n'.join(text.split('\n')[1:-1]).strip()
+        text = inner
+
+    # Remove single backticks surrounding the JSON
+    if text.startswith('`') and text.endswith('`'):
+        text = text[1:-1].strip()
+
+    # Remove a leading language tag like 'json' or JSON: before the object
+    text = re.sub(r'^(json\s*[:\n\r]+)', '', text, flags=re.IGNORECASE).strip()
+
+    # If the model included surrounding text, try to extract the first {...} block
+    first_brace = text.find('{')
+    last_brace = text.rfind('}')
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        candidate = text[first_brace:last_brace+1]
+    else:
+        candidate = text
+
+    # Try JSON parse directly
+    try:
+        return json.loads(candidate)
+    except Exception:
+        # Fallback: replace single quotes with double quotes and try again
+        candidate2 = re.sub(r"(?<!\\)'", '"', candidate)
+        try:
+            return json.loads(candidate2)
+        except Exception:
+            return None
 
 def extract_category_and_identifier(file_path):
     parts = file_path.replace("\\", "/").split("/")
@@ -50,8 +85,8 @@ def extract_category_and_identifier(file_path):
 # Helper function to get the appropriate prompt
 def get_prompt(submit_button):
     if submit_button:
-        st.session_state["pond_prompt"] = prompt_v3
-        return prompt_v3
+        st.session_state["pond_prompt"] = prompt_v4
+        return prompt_v4
     else:
         return None
     
@@ -124,7 +159,7 @@ if submit_button_single:
                     display_similarities('Explanation', d['explanation'])
 
                     # Write to Google Sheet
-                    to_sheet(d["Pond Identifier"], d["observations"], d["Recommendation"], d["Pond Category"])
+                    # to_sheet(d["Pond Identifier"], d["observations"], d["Recommendation"], d["Pond Category"])
                     
                     # Optionally send email for single image
                     recipient_emails = [
@@ -135,7 +170,7 @@ if submit_button_single:
                     ]
                     sender_email = "productionponds@gmail.com"
                     sender_password = gmail_pass
-                    send_email_report([d], recipient_emails, sender_email, sender_password)
+                    # send_email_report([d], recipient_emails, sender_email, sender_password)
                 else:
                     st.error("Could not parse the result as JSON.")
             except Exception as e:
@@ -200,3 +235,4 @@ if submit_button_batch:
                 to_sheet_batch(st.session_state["recommendation_data"])
         except Exception as e:
             st.error(f"Error fetching or processing images: {e}")
+            print(e)

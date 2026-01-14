@@ -24,77 +24,139 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import pytz
 from io import BytesIO
-import cv2
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 # from twilio.rest import Client
 
 
 api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
 gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
-prompt_v3 = """
-            I will provide you with an image of a pond with a colored tube/gauge structure in the middle used to indicate water levels. You are analyzing an image of a fish pond that contains a vertical colored gauge/tube used to indicate the pond’s water level.
-            The gauge has 4 colored plates arranged in a fixed order from **top to bottom** as follows:
+# prompt_v3 = """
+#             I will provide you with an image of a pond with a colored tube/gauge structure in the middle used to indicate water levels. You are analyzing an image of a fish pond that contains a vertical colored gauge/tube used to indicate the pond’s water level.
+#             The gauge has 4 colored plates arranged in a fixed order from **top to bottom** as follows:
             
-            1. WHITE plate (top) - pond is FULL 
-            2. GREEN plate (second) - SAFE level, no need for refill
-            3. BLUE plate (third) - AVERAGE RISK, still needs refill
-            4. RED plate (bottom) - CRITICAL level, urgent pond refill required
+#             1. WHITE plate (top) - pond is FULL 
+#             2. GREEN plate (second) - SAFE level, no need for refill
+#             3. BLUE plate (third) - AVERAGE RISK, still needs refill
+#             4. RED plate (bottom) - CRITICAL level, urgent pond refill required
 
-            Your task is to identify the current visible plates above the water line and determine the pond`s water level status.
+#             Your task is to identify the current visible plates above the water line and determine the pond`s water level status.
             
-            Visual Analysis Rules:
+#             Visual Analysis Rules:
 
-            1. Always start from the top (WHITE) and move downward.
-            - Confirm whether the WHITE plate is visible first — it is always at the top.
-            - Then check for GREEN, then BLUE, then RED in that order.
+#             1. Always start from the top (WHITE) and move downward.
+#             - Confirm whether the WHITE plate is visible first — it is always at the top.
+#             - Then check for GREEN, then BLUE, then RED in that order.
 
-            2. Positional logic override:
-            - The plates’ order never changes.  
-                Therefore, if a color appears out of sequence (e.g. BLUE above GREEN), it must be due to reflection or lighting error — ignore that anomaly.
+#             2. Positional logic override:
+#             - The plates’ order never changes.  
+#                 Therefore, if a color appears out of sequence (e.g. BLUE above GREEN), it must be due to reflection or lighting error — ignore that anomaly.
 
-            3. Reflection handling:
-            - Water and nets may create greenish, bluish, or brownish reflections on the gauge or water.
-            - Treat light blue, teal, or cyan hues below WHITE as GREEN unless the actual BLUE plate position (third) is clearly visible above water.
-            - Ignore reflections on the water surface that are not physically on the gauge structure.
+#             3. Reflection handling:
+#             - Water and nets may create greenish, bluish, or brownish reflections on the gauge or water.
+#             - Treat light blue, teal, or cyan hues below WHITE as GREEN unless the actual BLUE plate position (third) is clearly visible above water.
+#             - Ignore reflections on the water surface that are not physically on the gauge structure.
 
-            4. Color fallback rules:
-            - If you see ONLY the WHITE plate is visible above the water, classify as WHITE
-            - If you see the WHITE plate and the next visible color appears bluish, default to GREEN (second plate) unless the third BLUE plate is fully visible above water.
-            - Only classify BLUE when you can clearly see the third plate section (below the green one) above the waterline.
-            - If the top of the gauge (WHITE) is visible and no lower plates are visible, classify as WHITE.
-            - If you see RED along with BLUE, GREEN, and WHITE visible above water, classify as RED (critical).
+#             4. Color fallback rules:
+#             - If you see ONLY the WHITE plate is visible above the water, classify as WHITE
+#             - If you see the WHITE plate and the next visible color appears bluish, default to GREEN (second plate) unless the third BLUE plate is fully visible above water.
+#             - Only classify BLUE when you can clearly see the third plate section (below the green one) above the waterline.
+#             - If the top of the gauge (WHITE) is visible and no lower plates are visible, classify as WHITE.
+#             - If you see RED along with BLUE, GREEN, and WHITE visible above water, classify as RED (critical).
 
-            5. Faded or mixed colors:
-            - Slightly faded or dirty colors should still be classified based on their relative position rather than hue intensity.
-            - When unsure, use the known fixed order (WHITE → GREEN → BLUE → RED) to reason spatially.
+#             5. Faded or mixed colors:
+#             - Slightly faded or dirty colors should still be classified based on their relative position rather than hue intensity.
+#             - When unsure, use the known fixed order (WHITE → GREEN → BLUE → RED) to reason spatially.
             
-            Recommendation and observation rules based on ALL visible colors (Top → Bottom):
-                - If RED, BLUE, GREEN, and WHITE plates are ALL visible above water:
-                    recommendation: "Urgent pond refill"
-                    observation: "Red"
-                - If BLUE, GREEN, and WHITE plates are ALL visible above water:
-                    recommendation: "Need to fill"
-                    observation: "Blue"  
-                - If GREEN and WHITE plates are visible above water:
-                    recommendation: "No action needed"
-                    observation: "Green"
-                - Disambiguation: If only WHITE and a plate directly below it are visible and that second plate looks teal/cyan/blueish due to fading, lighting, or water refraction, classify it as GREEN (because the second plate is always GREEN). Only classify BLUE when the third plate position is clearly visible above water.
-                - If only WHITE plate is visible above water:
-                    recommendation: "No more filling"
-                    observation: "White"
+#             Recommendation and observation rules based on ALL visible colors (Top → Bottom):
+#                 - If RED, BLUE, GREEN, and WHITE plates are ALL visible above water:
+#                     recommendation: "Urgent pond refill"
+#                     observation: "Red"
+#                 - If BLUE, GREEN, and WHITE plates are ALL visible above water:
+#                     recommendation: "Need to fill"
+#                     observation: "Blue"  
+#                 - If GREEN and WHITE plates are visible above water:
+#                     recommendation: "No action needed"
+#                     observation: "Green"
+#                 - Disambiguation: If only WHITE and a plate directly below it are visible and that second plate looks teal/cyan/blueish due to fading, lighting, or water refraction, classify it as GREEN (because the second plate is always GREEN). Only classify BLUE when the third plate position is clearly visible above water.
+#                 - If only WHITE plate is visible above water:
+#                     recommendation: "No more filling"
+#                     observation: "White"
 
-            If colors are unclear due to lighting or reflection, always default to the highest plausible water level (e.g., if unsure between green and blue, choose green)
+#             If colors are unclear due to lighting or reflection, always default to the highest plausible water level (e.g., if unsure between green and blue, choose green)
             
-            Return your evaluation as a JSON object in the following format:
-            {
-              "Recommendation": "<recommendation>",
-              "observations": "<observations>",
-              "explanation": "<explanation>"
-            }
+#             Return your evaluation as a JSON object in the following format:
+#             {
+#               "Recommendation": "<recommendation>",
+#               "observations": "<observations>",
+#               "explanation": "<explanation>"
+#             }
             
-            Respond in only valid JSON format. Do not add formatting like ```json or any other prefixes.
+#             Respond in only valid JSON format. Do not add formatting like ```json or any other prefixes.
+#             """
+
+prompt_v4 = """
+       You are analyzing an image of a pond with a water level gauge - a vertical black tube/pipe with WHITE horizontal bands.
+
+        GAUGE STRUCTURE:
+        - The gauge has up to 3 WHITE horizontal bands stacked vertically
+        - A floating ring (typically blue or light-colored) surrounds the pipe at the waterline
+        - The black pipe may cast shadows on the water AND OR on the floating ring that can create false band-like appearances
+
+        YOUR TASK:
+        Count the number of complete WHITE bands visible (0, 1, 2, or 3).
+
+        COUNTING RULES:
+        - Only count WHITE BANDS on the pipe itself, NOT the floating ring
+        - The floating ring is a separate indicator at the waterline - do NOT count it as a band
+        - Ignore shadows on the water surface that may look like bands
+        - White bands are painted ON the pipe and appear as THICK horizontal stripes ON the pipe surface
+        - Shadows, reflections, or the floating ring are NOT bands
+
+        VISUAL DISTINCTION GUIDE:
+        - WHITE BANDS: Horizontal stripes painted/marked ON the black pipe surface
+        - FLOATING RING: Circular ring AROUND the pipe at water level (not a band)
+        - SHADOWS: Dark areas on water surface below the pipe (not bands)
+        - REFLECTIONS: Mirror images in water (not bands)
+
+        INTERPRETATION:
+        - 0 bands visible = Water level is optimal or too high → "White" → "No more filling"
+        - 1 band visible = Water level is acceptable → "Green" → "No action needed"  
+        - 2 bands visible = Water level is low → "Blue" → "Need to fill"
+        - 3 bands visible = Water level is critically low → "Red" → "Urgent pond refill"
+
+        OUTPUT REQUIREMENT:
+        Return ONLY a valid JSON object with this exact structure (no markdown, no code fences, no additional text):
+
+        {
+        "Recommendation": "<recommendation text from mapping above>",
+        "observations": "<observation color from mapping above>",
+        "explanation": "Counted [X] white band(s) above the waterline. [Brief reasoning including what you identified as bands vs. floating ring/shadows]"
+        }
+
+        EXAMPLE OUTPUTS:
+
+        Example 1 - Clear case:
+        {
+        "Recommendation": "No action needed",
+        "observations": "Green",
+        "explanation": "Counted 1 white band above the waterline. The band is clearly visible on the pipe above the floating ring. The white circular object at water level is the floating ring, not a band."
+        }
+
+        Example 2 - Shadow present:
+        {
+        "Recommendation": "No action needed",
+        "observations": "Green",
+        "explanation": "Counted 1 white band above the waterline. Identified one horizontal white stripe on the pipe itself. The floating ring and pipe shadow on the water surface were not counted as bands."
+        }
+
+        Example 3 - Low confidence:
+        {
+        "Recommendation": "Need to fill",
+        "observations": "Blue",
+        "explanation": "Counted 2 white bands above the waterline. Two distinct horizontal stripes are visible on the pipe, though image quality makes precise distinction challenging. Confidence: medium"
+        }
             """
 
 def send_sms(receiver_list, msg, success_msg=True):
@@ -389,23 +451,22 @@ def to_sheet_batch(recommendation_data):
         "christinek@victoryfarmskenya.com",
         "nsogbuw@victoryfarmskenya.com",
         "anneo@victoryfarmskenya.com",
-        "brendac@victoryfarmskenya.com",
-        "philipa@victoryfarmskenya.com",
-        "colvina@victoryfarmskenya.com",
-        "irenem@victoryfarmskenya.com",
+        # "brendac@victoryfarmskenya.com",
+        # "philipa@victoryfarmskenya.com",
+        # "colvina@victoryfarmskenya.com",
+        # "irenem@victoryfarmskenya.com",
         "steve.moran@victoryfarmskenya.com",
-        "edna@victoryfarmskenya.com",
-        "Narcisos@victoryfarmskenya.com",
-        "Norman@victoryfarmskenya.com",
-        "nchew@victoryfarmskenya.com",
-        "Orlandod@victoryfarmskenya.com",
-        "georgiah@victoryfarmskenya.com",
-        "joseph.rehmann@victoryfarmskenya.com"
+        # "Narcisos@victoryfarmskenya.com",
+        # "Norman@victoryfarmskenya.com",
+        # "nchew@victoryfarmskenya.com",
+        # "Orlandod@victoryfarmskenya.com",
+        "georgiah@victoryfarmskenya.com"
+        # "joseph.rehmann@victoryfarmskenya.com"
     ]
     sender_email = "productionponds@gmail.com"
     sender_password = gmail_pass
-    send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
-    send_sms_recommendations(recommendation_data)
+    # send_email_report(recommendation_data, recipient_emails, sender_email, sender_password)
+    # send_sms_recommendations(recommendation_data)
 
 def change_image_format(image_file):
     """Convert an uploaded image file to a base64-encoded data URL."""
@@ -434,89 +495,12 @@ def resize_image(image_file, max_size=1024):
         return output
     except Exception as e:
         print(f"Error resizing image: {e}")
-        return image_file  # fallback to original
- 
-def normalize_water_tones(image_file, reduce_factor=0.45):
-    """
-    Desaturate water-like hues (blue/green) to reduce water reflections and
-    make the gauge colors more prominent for downstream AI processing
-    """
-    try:
-        # Accept either a BytesIO/file-like or PIL Image
-        if isinstance(image_file, (BytesIO,)):
-            image_file.seek(0)
-            pil = Image.open(image_file).convert('RGB')
-        elif hasattr(image_file, 'read'):
-            image_file.seek(0)
-            pil = Image.open(image_file).convert('RGB')
-        elif isinstance(image_file, Image.Image):
-            pil = image_file.convert('RGB')
-        else:
-            # try to construct from bytes
-            pil = Image.open(BytesIO(image_file)).convert('RGB')
+        return None
 
-        arr = np.array(pil)
-        # convert RGB to BGR for OpenCV
-        bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
-        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-
-        h = hsv[:, :, 0]
-        s = hsv[:, :, 1]
-        v = hsv[:, :, 2]
-
-        # OpenCV hue range: 0-179
-        # Water-like blue range and green range heuristics
-        blue_mask = (h >= 90) & (h <= 140)
-        green_mask = (h >= 35) & (h <= 85)
-
-        # Combine masks and require some minimum brightness to avoid dark regions
-        bright_mask = v >= 30
-        mask = (blue_mask | green_mask) & bright_mask
-
-        # Apply saturation reduction on masked pixels
-        s_new = s.astype(np.float32)
-        s_new[mask] = s_new[mask] * float(reduce_factor)
-        s_new = np.clip(s_new, 0, 255).astype(np.uint8)
-        hsv[:, :, 1] = s_new
-
-        # Convert back to RGB
-        bgr2 = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-        rgb2 = cv2.cvtColor(bgr2, cv2.COLOR_BGR2RGB)
-        pil_out = Image.fromarray(rgb2)
-        out = BytesIO()
-        pil_out.save(out, format='PNG')
-        out.seek(0)
-        return out
-    except Exception as e:
-        print(f"Color normalization failed: {e}")
-        try:
-            if hasattr(image_file, 'read'):
-                image_file.seek(0)
-                return BytesIO(image_file.read())
-            elif isinstance(image_file, Image.Image):
-                out = BytesIO()
-                image_file.save(out, format='PNG')
-                out.seek(0)
-                return out
-        except Exception:
-            return image_file
         
 def compare_images(prompt, image_1):
     resized_image = resize_image(image_1)
-    try:
-        normalize_flag = os.getenv('COLOR_NORMALIZATION', 'true').lower() in ['1', 'true', 'yes', 'on']
-    except Exception:
-        normalize_flag = True
-
-    if normalize_flag:
-        try:
-            normalized = normalize_water_tones(resized_image)
-            data_url = change_image_format(normalized)
-        except Exception as e:
-            print(f"Normalization failed, falling back: {e}")
-            data_url = change_image_format(resized_image)
-    else:
-        data_url = change_image_format(resized_image)
+    data_url = change_image_format(resized_image)
 
     response = client.chat.completions.create(model="gpt-4o",
     messages=[
