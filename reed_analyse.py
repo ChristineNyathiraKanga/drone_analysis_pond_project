@@ -24,8 +24,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import pytz
 from io import BytesIO
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 # from twilio.rest import Client
 
 
@@ -101,7 +101,7 @@ prompt_v4 = """
 
         GAUGE STRUCTURE:
         - The gauge has up to 3 WHITE horizontal bands stacked vertically
-        - A floating ring (typically blue or light-colored) surrounds the pipe at the waterline
+        - A floating ring (typically red or crimson-colored) surrounds the pipe at the waterline
         - The black pipe may cast shadows on the water AND OR on the floating ring that can create false band-like appearances
 
         YOUR TASK:
@@ -112,7 +112,7 @@ prompt_v4 = """
         - The floating ring is a separate indicator at the waterline - do NOT count it as a band
         - Ignore shadows on the water surface that may look like bands
         - White bands are painted ON the pipe and appear as THICK horizontal stripes ON the pipe surface
-        - Shadows, reflections, or the floating ring are NOT bands
+        - Shadows, Calcification on pipes, limescale, reflections, or the floating ring are NOT bands
 
         VISUAL DISTINCTION GUIDE:
         - WHITE BANDS: Horizontal stripes painted/marked ON the black pipe surface
