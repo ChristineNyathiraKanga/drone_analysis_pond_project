@@ -96,69 +96,146 @@ gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
 #             Respond in only valid JSON format. Do not add formatting like ```json or any other prefixes.
 #             """
 
+# prompt_v4 = """
+#        You are analyzing an image of a pond with a water level gauge - a vertical black tube/pipe with WHITE horizontal bands.
+
+#         GAUGE STRUCTURE:
+#         - The gauge has up to 3 WHITE horizontal bands stacked vertically
+#         - A floating ring (typically red or crimson-colored) surrounds the pipe at the waterline
+#         - The black pipe may cast shadows on the water AND OR on the floating ring that can create false band-like appearances
+
+#         YOUR TASK:
+#         Count the number of complete WHITE bands visible (0, 1, 2, or 3).
+
+#         COUNTING RULES:
+#         - Only count WHITE BANDS on the pipe itself, NOT the floating ring
+#         - The floating ring is a separate indicator at the waterline - do NOT count it as a band
+#         - Ignore shadows on the water surface that may look like bands
+#         - White bands are painted ON the pipe and appear as THICK horizontal stripes ON the pipe surface
+#         - Shadows, Calcification on pipes, limescale, reflections, or the floating ring are NOT bands
+
+#         VISUAL DISTINCTION GUIDE:
+#         - WHITE BANDS: Horizontal stripes painted/marked ON the black pipe surface
+#         - FLOATING RING: Circular ring AROUND the pipe at water level (not a band)
+#         - SHADOWS: Dark areas on water surface below the pipe (not bands)
+#         - REFLECTIONS: Mirror images in water (not bands)
+
+#         INTERPRETATION:
+#         - 0 bands visible = Water level is optimal or too high → "White" → "No more filling"
+#         - 1 band visible = Water level is acceptable → "Green" → "No action needed"  
+#         - 2 bands visible = Water level is low → "Blue" → "Need to fill"
+#         - 3 bands visible = Water level is critically low → "Red" → "Urgent pond refill"
+
+#         OUTPUT REQUIREMENT:
+#         Return ONLY a valid JSON object with this exact structure (no markdown, no code fences, no additional text):
+
+#         {
+#         "Recommendation": "<recommendation text from mapping above>",
+#         "observations": "<observation color from mapping above>",
+#         "explanation": "Counted [X] white band(s) above the waterline. [Brief reasoning including what you identified as bands vs. floating ring/shadows]"
+#         }
+
+#         EXAMPLE OUTPUTS:
+
+#         Example 1 - Clear case:
+#         {
+#         "Recommendation": "No action needed",
+#         "observations": "Green",
+#         "explanation": "Counted 1 white band above the waterline. The band is clearly visible on the pipe above the floating ring. The white circular object at water level is the floating ring, not a band."
+#         }
+
+#         Example 2 - Shadow present:
+#         {
+#         "Recommendation": "No action needed",
+#         "observations": "Green",
+#         "explanation": "Counted 1 white band above the waterline. Identified one horizontal white stripe on the pipe itself. The floating ring and pipe shadow on the water surface were not counted as bands."
+#         }
+
+#         Example 3 - Low confidence:
+#         {
+#         "Recommendation": "Need to fill",
+#         "observations": "Blue",
+#         "explanation": "Counted 2 white bands above the waterline. Two distinct horizontal stripes are visible on the pipe, though image quality makes precise distinction challenging. Confidence: medium"
+#         }
+#             """
+
 prompt_v4 = """
-       You are analyzing an image of a pond with a water level gauge - a vertical black tube/pipe with WHITE horizontal bands.
+You are visually reading a calibrated water level gauge.
 
-        GAUGE STRUCTURE:
-        - The gauge has up to 3 WHITE horizontal bands stacked vertically
-        - A floating ring (typically red or crimson-colored) surrounds the pipe at the waterline
-        - The black pipe may cast shadows on the water AND OR on the floating ring that can create false band-like appearances
+The white bands are fixed, evenly spaced calibration markers on the outer wall of a black cylindrical pipe.
 
-        YOUR TASK:
-        Count the number of complete WHITE bands visible (0, 1, 2, or 3).
+IMPORTANT:
+You must FIRST identify all visible white calibration bands on the pipe,
+and ONLY AFTER that use the floating ring to determine which of those bands count.
 
-        COUNTING RULES:
-        - Only count WHITE BANDS on the pipe itself, NOT the floating ring
-        - The floating ring is a separate indicator at the waterline - do NOT count it as a band
-        - Ignore shadows on the water surface that may look like bands
-        - White bands are painted ON the pipe and appear as THICK horizontal stripes ON the pipe surface
-        - Shadows, Calcification on pipes, limescale, reflections, or the floating ring are NOT bands
+Do NOT start counting from the ring.
 
-        VISUAL DISTINCTION GUIDE:
-        - WHITE BANDS: Horizontal stripes painted/marked ON the black pipe surface
-        - FLOATING RING: Circular ring AROUND the pipe at water level (not a band)
-        - SHADOWS: Dark areas on water surface below the pipe (not bands)
-        - REFLECTIONS: Mirror images in water (not bands)
+--------------------------------
+STEP 1 — IDENTIFY THE PIPE
+--------------------------------
+Locate the vertical black cylindrical pipe. Bands exist only on the OUTER wall.
 
-        INTERPRETATION:
-        - 0 bands visible = Water level is optimal or too high → "White" → "No more filling"
-        - 1 band visible = Water level is acceptable → "Green" → "No action needed"  
-        - 2 bands visible = Water level is low → "Blue" → "Need to fill"
-        - 3 bands visible = Water level is critically low → "Red" → "Urgent pond refill"
+Ignore the hollow top if visible.
 
-        OUTPUT REQUIREMENT:
-        Return ONLY a valid JSON object with this exact structure (no markdown, no code fences, no additional text):
+--------------------------------
+STEP 2 — FIND ALL VISIBLE CALIBRATION BANDS
+--------------------------------
+Scan the entire visible pipe surface and identify every true white band you can see.
 
-        {
-        "Recommendation": "<recommendation text from mapping above>",
-        "observations": "<observation color from mapping above>",
-        "explanation": "Counted [X] white band(s) above the waterline. [Brief reasoning including what you identified as bands vs. floating ring/shadows]"
-        }
+A true band:
+• Wraps around the pipe curvature
+• Has consistent thickness
+• Is clearly paint, not dirt, glare, scum, or reflection
 
-        EXAMPLE OUTPUTS:
+At this stage, IGNORE the floating ring completely.
 
-        Example 1 - Clear case:
-        {
-        "Recommendation": "No action needed",
-        "observations": "Green",
-        "explanation": "Counted 1 white band above the waterline. The band is clearly visible on the pipe above the floating ring. The white circular object at water level is the floating ring, not a band."
-        }
+Just determine how many real bands are visible on the pipe.
 
-        Example 2 - Shadow present:
-        {
-        "Recommendation": "No action needed",
-        "observations": "Green",
-        "explanation": "Counted 1 white band above the waterline. Identified one horizontal white stripe on the pipe itself. The floating ring and pipe shadow on the water surface were not counted as bands."
-        }
+--------------------------------
+STEP 3 — LOCATE THE FLOATING RING (WATERLINE)
+--------------------------------
+Find the orange/red floating ring. The top of the ring marks the water level.
 
-        Example 3 - Low confidence:
-        {
-        "Recommendation": "Need to fill",
-        "observations": "Blue",
-        "explanation": "Counted 2 white bands above the waterline. Two distinct horizontal stripes are visible on the pipe, though image quality makes precise distinction challenging. Confidence: medium"
-        }
-            """
+--------------------------------
+STEP 4 — DETERMINE WHICH VISIBLE BANDS COUNT
+--------------------------------
+From the set of visible bands you identified in Step 2:
 
+• Any band ABOVE the ring → COUNT
+• Any band VISIBLY TOUCHING and IN LINE with the ring → COUNT
+• Any band BELOW the ring (even if visible through water) → DO NOT COUNT
+• Any band VISIBLY TOUCHING and IN LINE with the ring BUT IN WATER →  DO NOT COUNT
+
+Because bands are evenly spaced, if you see two consecutive bands and the ring is on the lower one, BOTH are counted.
+
+This is critical.
+
+--------------------------------
+STEP 5 — FINAL COUNT
+--------------------------------
+Count how many of the visible bands from Step 2 meet the criteria in Step 4.
+
+Possible values: 0, 1, 2, 3.
+
+--------------------------------
+INTERPRETATION
+--------------------------------
+0 bands = "White"  → "No more filling"
+1 band  = "Green"  → "No action needed"
+2 bands = "Blue"   → "Need to fill"
+3 bands = "Red"    → "Urgent pond refill"
+
+--------------------------------
+OUTPUT (STRICT JSON)
+--------------------------------
+{
+  "band_count": X,
+  "observations": "<White | Green | Blue | Red>",
+  "Recommendation": "<text>",
+  "explanation": "Explain how you first identified all visible calibration bands on the pipe, then used the ring position to determine which of those bands count."
+}
+
+        """
 def send_sms(receiver_list, msg, success_msg=True):
     """
     Send SMS to a list of phone numbers using environment-configured SMS gateway.
