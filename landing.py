@@ -227,6 +227,9 @@ if submit_button_batch:
                     if image_url:
                         st.image(image_url, caption=recommendation["Pond Identifier"], use_container_width=True)
                         st.header(f'Summary: {recommendation["Pond Identifier"]}')
+                        display_similarities('Confidence', recommendation['confidence'])
+                        display_similarities('Band Count', recommendation['band_count'])
+                        display_similarities('Ring Detection', recommendation['ring_detected'])
                         display_similarities('Observation', recommendation['observations'])
                         display_similarities('Recommendation', recommendation['Recommendation'])
                         display_similarities('Explanation', recommendation['explanation'])

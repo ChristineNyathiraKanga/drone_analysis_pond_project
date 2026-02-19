@@ -24,8 +24,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import pytz
 from io import BytesIO
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 # from twilio.rest import Client
 
 
@@ -160,80 +160,97 @@ gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
 #             """
 
 prompt_v4 = """
-You are visually reading a calibrated water level gauge.
+       You are reading a water level gauge in a fish pond.
 
-The white bands are fixed, evenly spaced calibration markers on the outer wall of a black cylindrical pipe.
+        THE GAUGE:
+        A black vertical pipe with white painted bands on its outer wall.
+        An orange/red floating ring sits at the water surface around the pipe.
+        The bands ABOVE the ring are exposed (out of water).
+        The bands BELOW the ring are submerged (underwater).
 
-IMPORTANT:
-You must FIRST identify all visible white calibration bands on the pipe,
-and ONLY AFTER that use the floating ring to determine which of those bands count.
+        MORE BANDS EXPOSED = LOWER WATER LEVEL = more urgent to fill.
 
-Do NOT start counting from the ring.
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        PRE-CHECK — RUN BEFORE ANYTHING ELSE
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Before counting bands, verify these are NOT bands:
 
---------------------------------
-STEP 1 — IDENTIFY THE PIPE
---------------------------------
-Locate the vertical black cylindrical pipe. Bands exist only on the OUTER wall.
+        ❌ The top rim/opening of the pipe — the pipe is hollow and open. 
+        The top edge always appears as a light ring or rim. NEVER count this.
+        Real bands start well BELOW the top opening.
 
-Ignore the hollow top if visible.
+        ❌ Reflections on water — calm water mirrors the pipe below the ring.
+        A reflection is upside-down, sits ON or BELOW the waterline, 
+        and appears wavy/distorted. NEVER count reflections.
 
---------------------------------
-STEP 2 — FIND ALL VISIBLE CALIBRATION BANDS
---------------------------------
-Scan the entire visible pipe surface and identify every true white band you can see.
+        ❌ Dirt, scum, rope, or discoloration lines on the pipe.
+        
+        Each white band is a single continuous stripe. 
+        If what you see as "two bands" are actually:
+        - One wide stripe + the ring edge touching it → that's 1 band
+        - One stripe + the pipe rim/top → that's 1 band  
+        - One stripe + an inner rod or tube → that's 1 band
 
-A true band:
-• Wraps around the pipe curvature
-• Has consistent thickness
-• Is clearly paint, not dirt, glare, scum, or reflection
+        When in doubt between 1 and 2, ask: 
+        Is there clearly a GAP of black pipe between two white stripes?
+        NO GAP = NOT two separate bands.
 
-At this stage, IGNORE the floating ring completely.
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        STEP 1 — FIND THE WATERLINE
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Is the orange/red floating ring clearly visible?
 
-Just determine how many real bands are visible on the pipe.
+        YES → The ring marks the waterline. Use it.
+        NO  → Estimate waterline from where the pipe surface 
+            changes from dry/rough (above) to wet/smooth (below),
+            or where a scum line appears on the pipe.
+            Set ring_detected: false and note this in explanation.
 
---------------------------------
-STEP 3 — LOCATE THE FLOATING RING (WATERLINE)
---------------------------------
-Find the orange/red floating ring. The top of the ring marks the water level.
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        STEP 2 — COUNT EXPOSED BANDS
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Count only white bands that are ABOVE the waterline (exposed, not submerged).
 
---------------------------------
-STEP 4 — DETERMINE WHICH VISIBLE BANDS COUNT
---------------------------------
-From the set of visible bands you identified in Step 2:
+        A real band: painted white stripe, wraps around the pipe, 
+        consistent thickness, clearly on the physical pipe surface.
 
-• Any band ABOVE the ring → COUNT
-• Any band VISIBLY TOUCHING and IN LINE with the ring → COUNT
-• Any band BELOW the ring (even if visible through water) → DO NOT COUNT
-• Any band VISIBLY TOUCHING and IN LINE with the ring BUT IN WATER →  DO NOT COUNT
+        Band at the waterline (partially submerged but white still visible) → COUNT IT.
+        Band fully underwater → DO NOT COUNT.
 
-Because bands are evenly spaced, if you see two consecutive bands and the ring is on the lower one, BOTH are counted.
+        Maximum possible: 3 bands.
+    
 
-This is critical.
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        STEP 3 — CONFIDENCE CHECK
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        Can you clearly see the pipe and distinguish real bands 
+        from reflections/rim/dirt?
 
---------------------------------
-STEP 5 — FINAL COUNT
---------------------------------
-Count how many of the visible bands from Step 2 meet the criteria in Step 4.
+        NO → band_count: null, confidence: "low"
+        YES → confidence: "high" or "medium"
 
-Possible values: 0, 1, 2, 3.
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        SCORING
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        0 bands = White  → Water is full. No more filling.
+        1 band  = Green  → Water is good. No action needed.
+        2 bands = Blue   → Water is low. Fill the pond.
+        3 bands = Red    → Water is critically low. Urgent refill.
 
---------------------------------
-INTERPRETATION
---------------------------------
-0 bands = "White"  → "No more filling"
-1 band  = "Green"  → "No action needed"
-2 bands = "Blue"   → "Need to fill"
-3 bands = "Red"    → "Urgent pond refill"
-
---------------------------------
-OUTPUT (STRICT JSON)
---------------------------------
-{
-  "band_count": X,
-  "observations": "<White | Green | Blue | Red>",
-  "Recommendation": "<text>",
-  "explanation": "Explain how you first identified all visible calibration bands on the pipe, then used the ring position to determine which of those bands count."
-}
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        OUTPUT — STRICT JSON
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        {
+        "band_count": <0 | 1 | 2 | 3 | null>,
+        "confidence": "<high | medium | low>",
+        "ring_detected": <true | false>,
+        "observations": "<White | Green | Blue | Red | Unreadable>",
+        "Recommendation": "<action text>",
+        "explanation": "Briefly describe: what you saw on the pipe, 
+                        what you excluded (rim/reflections), 
+                        where the waterline is, 
+                        and which bands you counted and why."
+        }
 
         """
 def send_sms(receiver_list, msg, success_msg=True):
