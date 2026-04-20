@@ -1,6 +1,6 @@
 # Drone Pond Management System
 
-> **AI-powered pond water level analysis via drone imagery — built for Victory Farms.**
+> **AI-powered pond water level analysis via drone imagery -built for Victory Farms.**
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.41.1-red?logo=streamlit)](https://streamlit.io)
@@ -92,7 +92,7 @@ The system supports both **single-image** and **SharePoint batch-processing** wo
             ▼
 ┌─────────────────────────────────────────────────────────┐
 │          sharepoint_utils.py                            │
-│  list_sharepoint_images() — lists images in a          │
+│  list_sharepoint_images() -lists images in a          │
 │  SharePoint folder via Microsoft Graph API             │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -159,10 +159,10 @@ cd drone-pond-management
 # Create virtual environment
 python -m venv .venv
 
-# Activate — Windows
+# Activate -Windows
 .venv\Scripts\activate
 
-# Activate — macOS / Linux
+# Activate -macOS / Linux
 source .venv/bin/activate
 ```
 
@@ -235,7 +235,7 @@ The app will open in your browser at `http://localhost:8501`.
 3. Enter the **Pond Identifier** (e.g., `H1-P042`).
 4. Select the **Pond Category** from the dropdown.
 5. Click **Analyse Tube Structure for Image**.
-6. View the results — **Observation**, **Recommendation**, and **Explanation** — rendered below the image.
+6. View the results -**Observation**, **Recommendation**, and **Explanation** -rendered below the image.
 
 ### 7.3 Batch Analysis via SharePoint
 
@@ -269,14 +269,14 @@ The `Procfile` and `setup.sh` in the repository are pre-configured for Heroku de
 
 ## 8. Module Reference
 
-### 8.1 `landing.py` — Streamlit User Interface
+### 8.1 `landing.py` -Streamlit User Interface
 
 | Component | Description |
 |---|---|
 | `st.set_page_config(layout="wide")` | Sets the page to full-width layout |
 | `initialize_session_state()` | Primes `pond_prompt`, `uploaded_image`, `recommendation_data` in Streamlit session state |
 | `get_prompt(submit_button)` | Returns `prompt_v4` (the active gauge analysis prompt) and caches it in session state |
-| `safe_json_loads(s)` | Robust JSON parser — strips markdown fences, backticks, and language tags from GPT output before parsing |
+| `safe_json_loads(s)` | Robust JSON parser -strips markdown fences, backticks, and language tags from GPT output before parsing |
 | `extract_category_and_identifier(file_path)` | Parses folder/file path to derive pond category and identifier |
 | `process_image(image_file, prompt)` | Wrapper that calls `compare_images()` and injects the pond identifier into the result dict |
 | `process_images_in_batches(...)` | Async function that chunks image list and dispatches batches concurrently |
@@ -284,14 +284,14 @@ The `Procfile` and `setup.sh` in the repository are pre-configured for Heroku de
 | **Single-image flow** | Upload → prompt selection → `compare_images()` → display + optional email |
 | **Batch flow** | SharePoint link → `list_sharepoint_images()` → async processing → display → `to_sheet_batch()` |
 
-### 8.2 `reed_analyse.py` — Backend Processing Engine
+### 8.2 `reed_analyse.py` -Backend Processing Engine
 
 | Function | Description |
 |---|---|
 | `initialize_session_state()` | Mirrors the session-state setup from `landing.py` for safe import |
 | `change_image_format(image_file)` | Reads binary image content and returns a `data:image/png;base64,...` data URL |
 | `resize_image(image_file, max_size=1024)` | Resizes the image (preserving aspect ratio) to keep API payloads small |
-| `compare_images(prompt, image_1)` | Core function — resizes image, encodes to base64, and calls `gpt-4o` via the OpenAI Chat Completions API |
+| `compare_images(prompt, image_1)` | Core function -resizes image, encodes to base64, and calls `gpt-4o` via the OpenAI Chat Completions API |
 | `async_compare_images(prompt, image_files, max_concurrent=15)` | Async version using `asyncio.Semaphore` and `loop.run_in_executor` for concurrency |
 | `process_images_in_batches(prompt, image_files, batch_size=10)` | Splits image list into batches and calls `async_compare_images` per batch |
 | `send_whatsapp(message, number)` | Sends a WhatsApp message using the `heyoo` library |
@@ -307,20 +307,20 @@ The `Procfile` and `setup.sh` in the repository are pre-configured for Heroku de
 
 The current production prompt instructs GPT-4o to:
 
-1. **Pre-check** — exclude the pipe rim/opening, water reflections, and dirt lines.
-2. **Find the waterline** — locate the orange/red floating ring; estimate if absent.
-3. **Count exposed white bands** — only bands above the waterline on the physical pipe.
-4. **Confidence check** — returns `null` band count when visibility is poor.
+1. **Pre-check** -exclude the pipe rim/opening, water reflections, and dirt lines.
+2. **Find the waterline** -locate the orange/red floating ring; estimate if absent.
+3. **Count exposed white bands** -only bands above the waterline on the physical pipe.
+4. **Confidence check** -returns `null` band count when visibility is poor.
 5. **Return strict JSON** with keys: `band_count`, `confidence`, `ring_detected`, `observations`, `Recommendation`, `explanation`.
 
 | Bands Exposed | Observation | Recommendation |
 |:---:|---|---|
-| 0 | White | No more filling — pond is full |
+| 0 | White | No more filling -pond is full |
 | 1 | Green | No action needed |
-| 2 | Blue | Need to fill — water is low |
-| 3 | Red | **Urgent pond refill** — critically low |
+| 2 | Blue | Need to fill -water is low |
+| 3 | Red | **Urgent pond refill** -critically low |
 
-### 8.3 `sharepoint_utils.py` — SharePoint Image Listing
+### 8.3 `sharepoint_utils.py` -SharePoint Image Listing
 
 | Function | Description |
 |---|---|
@@ -335,7 +335,7 @@ For optimal AI analysis accuracy, drone operators should follow these capture st
 - **Angle:** Shoot at **45 degrees** from the drone, or as low as the safe flight envelope allows.
 - **Framing:** Centre the **water level gauge** (black pipe with white bands) in the frame.
 - **Clarity:** The **floating ring** and **white band(s)** must be clearly visible and in focus.
-- **Exclusions:** Avoid unnecessary objects in the frame — nets, shadows, and reflections reduce accuracy.
+- **Exclusions:** Avoid unnecessary objects in the frame -nets, shadows, and reflections reduce accuracy.
 - **Lighting:** Capture in good natural light; avoid harsh midday shadows directly on the gauge.
 - **Naming:** Name each image file using the pond identifier (e.g., `H1-P042.jpg`) so it maps correctly in the Excel log.
 
@@ -353,7 +353,7 @@ The active gauge design uses a **black vertical pipe** with **painted white band
   ╞═══╡  ← Band 2  │
   │   │             │
   ●───●  ← floating ring (waterline)
-  ╞═══╡  ← Band 1  ┘  (submerged — NOT counted)
+  ╞═══╡  ← Band 1  ┘  (submerged -NOT counted)
   │   │
   │   │
 ```
@@ -373,7 +373,7 @@ The active gauge design uses a **black vertical pipe** with **painted white band
 
 | Component | Recommended Action |
 |---|---|
-| **Streamlit** | `pip install --upgrade streamlit` — run periodically |
+| **Streamlit** | `pip install --upgrade streamlit` -run periodically |
 | **OpenAI SDK** | Monitor for API-breaking changes; test after upgrades |
 | **Heyoo / Meta WhatsApp** | Watch for Meta API version deprecations; update `WHATSAPP_TOKEN` before expiry |
 | **MSAL** | Keep current to track Azure AD token endpoint changes |
@@ -472,5 +472,4 @@ Open a GitHub Issue with:
 
 ## Acknowledgements
 
-Built by the **Technology & Innovation team** at [Victory Farms](https://victoryfarmskenya.com).  
 Powered by [OpenAI GPT-4o](https://openai.com), [Streamlit](https://streamlit.io), and [Microsoft Graph API](https://learn.microsoft.com/en-us/graph/overview).
